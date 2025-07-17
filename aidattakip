@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ayvalık Yıldız Konakları - Aidat Takip</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f4f8; color: #333; }
+    .container { max-width: 900px; margin: auto; background: #fff8f0; padding: 20px; margin-top: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1, h2, h3, h4 { text-align: center; color: #014f86; }
+    input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
+    button { background-color: #468faf; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #014f86; }
+    .hidden { display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background-color: #dbe9f4; }
+    .totals { margin-top: 20px; font-weight: bold; color: #014f86; }
+    .delete-btn { background-color: #dc3545; }
+    .delete-btn:hover { background-color: #c82333; }
+    .edit-btn { background-color: #ffc107; color: #333; }
+    .edit-btn:hover { background-color: #e0a800; }
+    .download-btn { background-color: #28a745; } /* Green for download */
+    .download-btn:hover { background-color: #218838; }
+    .message { text-align: center; color: green; margin-top: 10px; }
+    .error-message { text-align: center; color: red; margin-top: 10px; }
+    .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; font-size: 0.9em; color: #555; }
+    .section-divider { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc; }
+
+    @media (max-width: 600px) {
+      .container { padding: 10px; }
+      input, select, button { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ayvalık Yıldız Konakları</h1>
+    <h2>Aidat Takip Sistemi</h2>
+
+    <div id="login">
+      <h3>Giriş Yap</h3>
+      <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
+      <input type="password" id="password" placeholder="Şifre (örn: 1234)">
+      <button onclick="login()">Giriş</button>
+      <div id="loginMessage" class="message hidden"></div>
+    </div>
+
+    <div id="userPanel" class="hidden">
+      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
+      <h4>Borçlarınız</h4>
+      <table id="userTable">
+        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
+      </table>
+      <div class="bank-info">
+        <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
+        <p><strong>IBAN:</strong> TR510001000110981102095001</p>
+      </div>
+      <button onclick="logout()">Çıkış Yap</button>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+      <h3>Yönetici Paneli</h3>
+      <input type="number" id="aidatTutariInput" placeholder="Yeni Aidat Tutarı (₺)">
+      <button onclick="updateAidatTutari()">Aidat Tutarını Güncelle ve Tüm Dairelere Ekle</button>
+      <div id="aidatMessage" class="message hidden"></div>
+
+      <div class="section-divider"></div>
+      <h4>Tüm Dairelere Avans Ekle</h4>
+      <input type="number" id="avansTutariInput" placeholder="Avans Tutarı (₺)">
+      <button onclick="addAdvanceToAll()">Tüm Dairelere Avans Ekle</button>
+      <div id="avansMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Yeni Borç Ekle</h4>
+      <select id="borcTipi">
+        <option value="aidat">Aidat</option>
+        <option value="avans">Avans</option>
+      </select>
+      <input type="text" id="borcAy" placeholder="Ay (örn: Temmuz 2025)">
+      <input type="number" id="borcTutar" placeholder="Tutar (₺)">
+      <select id="borcKime"></select>
+      <button onclick="ekleBorc()">Borç Ekle</button>
+      <div id="addDebtMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Daire ve Yönetici Şifre Ayarla</h4>
+      <h5>Daire Şifresi Ayarla</h5>
+      <select id="sifreDaire"></select>
+      <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
+      <button onclick="sifreAyarla()">Daire Şifresini Kaydet</button>
+      <div id="passwordMessage" class="message hidden"></div>
+
+      <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
+      <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
+      <button onclick="setAdminPassword()">Yönetici Şifresini Kaydet</button>
+      <div id="adminPasswordMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Daire Borç Listesi</h4>
+      <select id="flatSelect" onchange="loadAdminTable()"></select>
+      <table id="adminTable">
+        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+      </table>
+      <div class="totals" id="borcToplam"></div>
+      <div id="adminTableMessage" class="message hidden"></div>
+      <button class="download-btn" onclick="downloadAllDebtsCsv()">Tüm Borçları Excel Olarak İndir</button>
+      <button class="delete-btn" onclick="deleteAllDebts()">Tüm Dairelerin Tüm Borçlarını Sil</button>
+      <button onclick="logout()">Çıkış Yap</button>
+    </div>
+  </div>
+
+  <script>
+    const defaultAidat = 2000;
+    let aidatTutari = localStorage.getItem("aidatTutari") || defaultAidat;
+    let adminCredentials = JSON.parse(localStorage.getItem("adminCredentials")) || { username: "admin", password: "admin123" };
+    
+    const daireler = [];
+    ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
+      for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`);
+    });
+
+    // Initialize data and passwords if they don't exist
+    let data = JSON.parse(localStorage.getItem("aidatData")) || {};
+    let passwords = JSON.parse(localStorage.getItem("userPasswords")) || {};
+
+    daireler.forEach(d => {
+      if (!data[d]) data[d] = [];
+      if (!passwords[d]) passwords[d] = "1234"; // Set default password if not exists
+    });
+    saveData(); // Save initial state or ensure existing data is consistent
+
+    // --- Helper Functions for UI Feedback ---
+    function showMessage(elementId, message, isError = false) {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.classList.remove('hidden');
+        if (isError) {
+            element.classList.remove('message');
+            element.classList.add('error-message');
+        } else {
+            element.classList.remove('error-message');
+            element.classList.add('message');
+        }
+        setTimeout(() => {
+            element.classList.add('hidden');
+        }, 3000); // Hide message after 3 seconds
+    }
+
+    // --- Core Data Management ---
+    function saveData() {
+      localStorage.setItem("aidatData", JSON.stringify(data));
+      localStorage.setItem("userPasswords", JSON.stringify(passwords));
+      localStorage.setItem("aidatTutari", aidatTutari); // Ensure aidatTutari is saved
+      localStorage.setItem("adminCredentials", JSON.stringify(adminCredentials)); // Save admin credentials
+    }
+
+    // --- Login/Logout Functionality ---
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const loginMessage = document.getElementById("loginMessage");
+
+      if (username === adminCredentials.username && password === adminCredentials.password) {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("adminPanel").classList.remove("hidden");
+        fillFlatSelects(); // Populate dropdowns
+        loadAdminTable(); // Load initial admin table
+        loginMessage.classList.add("hidden"); // Hide any previous login message
+        return;
+      }
+
+      if (!data[username]) {
+        showMessage("loginMessage", "Kullanıcı bulunamadı.", true);
+        return;
+      }
+
+      if (passwords[username] !== password) {
+        showMessage("loginMessage", "Şifre yanlış.", true);
+        return;
+      }
+
+      document.getElementById("login").classList.add("hidden");
+      document.getElementById("userPanel").classList.remove("hidden");
+      document.getElementById("userNameDisplay").textContent = username;
+      loadUserTable(username);
+      loginMessage.classList.add("hidden"); // Hide any previous login message
+    }
+
+    function logout() {
+      // Clear inputs and reload to reset state
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      location.reload();
+    }
+
+    // --- User Panel Functions ---
+    function loadUserTable(username) {
+      const table = document.getElementById("userTable");
+      table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>';
+      if (data[username].length === 0) {
+          table.innerHTML += '<tr><td colspan="4">Borcunuz bulunmamaktadır.</td></tr>';
+          return;
+      }
+      data[username].forEach(entry => {
+        table.innerHTML += `<tr><td>${entry.ay}</td><td>${entry.tip}</td><td>${entry.tutar} TL</td><td>${entry.odendi ? "Ödendi" : "Bekliyor"}</td></tr>`;
+      });
+    }
+
+    // --- Admin Panel Functions ---
+    function fillFlatSelects() {
+      const selects = ["flatSelect", "borcKime", "sifreDaire"];
+      selects.forEach(id => {
+        const select = document.getElementById(id);
+        select.innerHTML = "";
+        daireler.forEach(daire => {
+          const option = document.createElement("option");
+          option.value = daire;
+          option.textContent = daire;
+          select.appendChild(option);
+        });
+      });
+    }
+
+    function loadAdminTable() {
+      const daire = document.getElementById("flatSelect").value;
+      const table = document.getElementById("adminTable");
+      table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>';
+      let toplam = 0, odenen = 0;
+
+      if (!data[daire] || data[daire].length === 0) {
+          table.innerHTML += '<tr><td colspan="5">Bu daire için borç bulunmamaktadır.</td></tr>';
+          document.getElementById("borcToplam").textContent = `Toplam: 0 TL | Ödenen: 0 TL | Kalan: 0 TL`;
+          return;
+      }
+
+      data[daire].forEach((entry, index) => {
+        toplam += Number(entry.tutar);
+        if (entry.odendi) odenen += Number(entry.tutar);
+        table.innerHTML += `<tr>
+          <td>${entry.ay}</td>
+          <td>${entry.tip}</td>
+          <td>${entry.tutar} TL</td>
+          <td>${entry.odendi ? "Ödendi" : "Bekliyor"}</td>
+          <td>
+            ${entry.odendi ? "-" : `<button onclick="markPaid('${daire}', ${index})">Ödendi</button>`}
+            <button class="edit-btn" onclick="editDebt('${daire}', ${index})">Düzenle</button>
+            <button class="delete-btn" onclick="silBorc('${daire}', ${index})">Sil</button>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("borcToplam").textContent = `Toplam: ${toplam} TL | Ödenen: ${odenen} TL | Kalan: ${toplam - odenen} TL`;
+    }
+
+    function markPaid(daire, index) {
+      if (confirm(`${data[daire][index].ay} ayına ait ${data[daire][index].tutar} TL'lik borcu ödendi olarak işaretlemek istediğinizden emin misiniz?`)) {
+          data[daire][index].odendi = true;
+          saveData();
+          loadAdminTable();
+          showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
+      }
+    }
+
+    function ekleBorc() {
+      const daire = document.getElementById("borcKime").value;
+      const ay = document.getElementById("borcAy").value.trim();
+      const tutar = Number(document.getElementById("borcTutar").value);
+      const tip = document.getElementById("borcTipi").value;
+
+      if (!ay || isNaN(tutar) || tutar <= 0) {
+        showMessage("addDebtMessage", "Lütfen ay ve geçerli bir tutar giriniz.", true);
+        return;
+      }
+
+      // Check for duplicate debt for the same month and type
+      const isDuplicate = data[daire].some(entry => entry.ay === ay && entry.tip === tip && !entry.odendi);
+      if (isDuplicate) {
+          showMessage("addDebtMessage", `${daire} dairesi için ${ay} ayında ${tip} borcu zaten mevcut ve ödenmemiş.`, true);
+          return;
+      }
+
+      data[daire].push({ ay, tutar, tip, odendi: false });
+      saveData();
+      loadAdminTable(); // Refresh the table for the selected flat
+      showMessage("addDebtMessage", "Yeni borç başarıyla eklendi.");
+      // Clear input fields after adding
+      document.getElementById("borcAy").value = "";
+      document.getElementById("borcTutar").value = "";
+    }
+
+    function silBorc(daire, index) {
+        if (confirm(`Bu borcu silmek istediğinizden emin misiniz? (Ay: ${data[daire][index].ay}, Tutar: ${data[daire][index].tutar} TL)`)) {
+            data[daire].splice(index, 1); // Remove item at specific index
+            saveData();
+            loadAdminTable();
+            showMessage("adminTableMessage", "Borç başarıyla silindi.");
+        }
+    }
+
+    // Function to edit an existing debt
+    function editDebt(daire, index) {
+        const currentDebt = data[daire][index];
+        const newAy = prompt(`"${currentDebt.ay}" ayını düzenle (örn: Ağustos 2025):`, currentDebt.ay);
+        if (newAy === null) return; // User cancelled
+
+        let newTutar;
+        do {
+            newTutar = prompt(`"${currentDebt.tutar}" TL tutarını düzenle:`, currentDebt.tutar);
+            if (newTutar === null) return; // User cancelled inner prompt
+            newTutar = Number(newTutar);
+        } while (isNaN(newTutar) || newTutar <= 0);
+
+        const newTip = prompt(`"${currentDebt.tip}" tipini düzenle (aidat/avans):`, currentDebt.tip);
+        if (newTip === null || (newTip !== 'aidat' && newTip !== 'avans')) {
+            showMessage("adminTableMessage", "Geçersiz borç tipi. 'aidat' veya 'avans' olmalı.", true);
+            return;
+        }
+
+        // Check for duplicate debt after edit, excluding the current one
+        const isDuplicateAfterEdit = data[daire].some((entry, i) =>
+            i !== index && entry.ay === newAy && entry.tip === newTip && !entry.odendi
+        );
+        if (isDuplicateAfterEdit) {
+            showMessage("adminTableMessage", `${daire} dairesi için ${newAy} ayında ${newTip} borcu zaten mevcut ve ödenmemiş. Düzenleme yapılamadı.`, true);
+            return;
+        }
+
+
+        data[daire][index].ay = newAy.trim();
+        data[daire][index].tutar = newTutar;
+        data[daire][index].tip = newTip.trim();
+        saveData();
+        loadAdminTable();
+        showMessage("adminTableMessage", "Borç başarıyla düzenlendi.");
+    }
+
+
+    function updateAidatTutari() {
+      const yeni = Number(document.getElementById("aidatTutariInput").value);
+      if (isNaN(yeni) || yeni <= 0) {
+        showMessage("aidatMessage", "Lütfen geçerli bir aidat tutarı giriniz.", true);
+        return;
+      }
+
+      const currentDate = new Date();
+      // Ensure month and year are consistent for debt entries
+      const currentMonth = currentDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' }); // e.g., "Temmuz 2025"
+
+      let addedCount = 0;
+      daireler.forEach(daire => {
+        // Check if an aidat debt for the current month already exists and is not paid
+        const existingDebt = data[daire].find(entry => entry.ay === currentMonth && entry.tip === 'aidat' && !entry.odendi);
+
+        if (!existingDebt) {
+            data[daire].push({ ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false });
+            addedCount++;
+        }
+      });
+
+      aidatTutari = yeni; // Update the saved aidat amount
+      saveData();
+      if (addedCount > 0) {
+          showMessage("aidatMessage", `Aidat tutarı ${aidatTutari} TL olarak güncellendi ve ${addedCount} daireye ${currentMonth} ayı için aidat borcu eklendi.`, false);
+      } else {
+          showMessage("aidatMessage", `Aidat tutarı ${aidatTutari} TL olarak güncellendi. Tüm dairelerde ${currentMonth} ayı aidat borcu zaten mevcut veya ödenmiş.`, false);
+      }
+      document.getElementById("aidatTutariInput").value = ""; // Clear input
+      loadAdminTable(); // Refresh the table to show newly added debts
+    }
+
+    // New function to add advance to all apartments
+    function addAdvanceToAll() {
+        const avans = Number(document.getElementById("avansTutariInput").value);
+        if (isNaN(avans) || avans <= 0) {
+            showMessage("avansMessage", "Lütfen geçerli bir avans tutarı giriniz.", true);
+            return;
+        }
+
+        const currentDate = new Date();
+        const currentMonth = currentDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+
+        let addedCount = 0;
+        daireler.forEach(daire => {
+            // Check if an advance debt for the current month already exists and is not paid
+            const existingDebt = data[daire].find(entry => entry.ay === currentMonth && entry.tip === 'avans' && !entry.odendi);
+            
+            if (!existingDebt) {
+                data[daire].push({ ay: currentMonth, tutar: avans, tip: 'avans', odendi: false });
+                addedCount++;
+            }
+        });
+        saveData();
+        if (addedCount > 0) {
+            showMessage("avansMessage", `${addedCount} daireye ${currentMonth} ayı için ${avans} TL avans borcu eklendi.`, false);
+        } else {
+            showMessage("avansMessage", `Tüm dairelerde ${currentMonth} ayı için zaten avans borcu mevcut veya ödenmiş.`, false);
+        }
+        document.getElementById("avansTutariInput").value = "";
+        loadAdminTable(); // Refresh the table
+    }
+
+
+    function sifreAyarla() {
+      const daire = document.getElementById("sifreDaire").value;
+      const yeniSifre = document.getElementById("yeniSifre").value;
+      if (yeniSifre.length < 3) {
+        showMessage("passwordMessage", "Şifre en az 3 karakter olmalıdır.", true);
+        return;
+      }
+      passwords[daire] = yeniSifre;
+      saveData();
+      showMessage("passwordMessage", `${daire} için şifre başarıyla güncellendi.`);
+      document.getElementById("yeniSifre").value = ""; // Clear input
+    }
+
+    // Function to set admin password
+    function setAdminPassword() {
+        const newAdminPass = document.getElementById("adminYeniSifre").value;
+        if (newAdminPass.length < 5) { // Enforce a slightly stronger password for admin
+            showMessage("adminPasswordMessage", "Yönetici şifresi en az 5 karakter olmalıdır.", true);
+            return;
+        }
+        adminCredentials.password = newAdminPass;
+        saveData();
+        showMessage("adminPasswordMessage", "Yönetici şifresi başarıyla güncellendi. Lütfen bir sonraki girişinizde yeni şifrenizi kullanın.", false);
+        document.getElementById("adminYeniSifre").value = "";
+    }
+
+    // Function to delete all debts for ALL apartments
+    function deleteAllDebts() {
+        if (confirm("Tüm dairelere ait tüm borçları silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm borç kayıtlarını sıfırlayacaktır!")) {
+            // Iterate over all apartments and clear their debt arrays
+            daireler.forEach(daire => {
+                data[daire] = [];
+            });
+            saveData();
+            loadAdminTable(); // Refresh the table for the currently selected flat
+            showMessage("adminTableMessage", "Tüm dairelere ait tüm borçlar başarıyla silindi.", false);
+        }
+    }
+
+    // --- New Function: Download All Debts as CSV (Excel compatible) ---
+    function downloadAllDebtsCsv() {
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Add UTF-8 BOM for proper Turkish character display in Excel
+        csvContent += "Daire,Ay,Tip,Tutar (TL),Durum\n"; // Headers
+
+        daireler.forEach(daire => {
+            if (data[daire] && data[daire].length > 0) {
+                data[daire].forEach(entry => {
+                    const status = entry.odendi ? "Ödendi" : "Bekliyor";
+                    csvContent += `${daire},"${entry.ay}",${entry.tip},${entry.tutar},${status}\n`;
+                });
+            } else {
+                csvContent += `${daire},"Borç Yok",-,-,-\n`; // Indicate no debt for the flat
+            }
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "Ayvalik_Yildiz_Konaklari_Borc_Listesi_" + new Date().toLocaleDateString('tr-TR') + ".csv");
+        document.body.appendChild(link); // Required for Firefox
+        link.click();
+        document.body.removeChild(link); // Clean up
+        showMessage("adminTableMessage", "Tüm borçlar Excel dosyası olarak indirildi.");
+    }
+  </script>
+</body>
+</html>
