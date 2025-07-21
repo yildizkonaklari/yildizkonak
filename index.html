@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ayvalık Yıldız Konakları - Aidat Takip</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f4f8; color: #333; }
+    .container { max-width: 900px; margin: auto; background: #fff8f0; padding: 20px; margin-top: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1, h2, h3, h4 { text-align: center; color: #014f86; }
+    input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
+    button { background-color: #468faf; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #014f86; }
+    .hidden { display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background-color: #dbe9f4; }
+    .totals { margin-top: 20px; font-weight: bold; color: #014f86; }
+    .delete-btn { background-color: #dc3545; }
+    .delete-btn:hover { background-color: #c82333; }
+    .edit-btn { background-color: #ffc107; color: #333; }
+    .edit-btn:hover { background-color: #e0a800; }
+    .download-btn { background-color: #28a745; }
+    .download-btn:hover { background-color: #218838; }
+    .message { text-align: center; color: green; margin-top: 10px; }
+    .error-message { text-align: center; color: red; margin-top: 10px; }
+    .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; font-size: 0.9em; color: #555; }
+    .section-divider { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc; }
+    .unpaid-debt { color: #dc3545; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ayvalık Yıldız Konakları</h1>
+    <h2>Aidat Takip Sistemi</h2>
+
+    <div id="login" class="hidden"> <h3>Giriş Yap</h3>
+      <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
+      <input type="password" id="password" placeholder="Şifre (örn: 1234)">
+      <button onclick="login()">Giriş</button>
+      <div id="loginMessage" class="message hidden"></div>
+    </div>
+
+    <div id="userPanel" class="hidden">
+      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
+      <h4>Borçlarınız</h4>
+      <table id="userTable">
+        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
+      </table>
+      <div class="totals" id="userDebtTotals"></div>
+      <div class="bank-info">
+        <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
+        <p><strong>IBAN:</strong> TR510001000110981102095001</p>
+      </div>
+      <button onclick="logout()">Çıkış Yap</button>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+      <h3>Yönetici Paneli</h3>
+      <input type="number" id="aidatTutariInput" placeholder="Yeni Aidat Tutarı (₺)">
+      <button onclick="updateAidatTutari()">Aidat Tutarını Güncelle ve Tüm Dairelere Ekle</button>
+      <div id="aidatMessage" class="message hidden"></div>
+
+      <div class="section-divider"></div>
+      <h4>Tüm Dairelere Avans Ekle</h4>
+      <input type="number" id="avansTutariInput" placeholder="Avans Tutarı (₺)">
+      <button onclick="addAdvanceToAll()">Tüm Dairelere Avans Ekle</button>
+      <div id="avansMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Yeni Borç Ekle</h4>
+      <select id="borcTipi">
+        <option value="aidat">Aidat</option>
+        <option value="avans">Avans</option>
+      </select>
+      <input type="text" id="borcAy" placeholder="Ay (örn: Temmuz 2025)">
+      <input type="number" id="borcTutar" placeholder="Tutar (₺)">
+      <select id="borcKime"></select>
+      <button onclick="ekleBorc()">Borç Ekle</button>
+      <div id="addDebtMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Daire ve Yönetici Şifre Ayarla</h4>
+      <h5>Daire Şifresi Ayarla</h5>
+      <select id="sifreDaire"></select>
+      <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
+      <button onclick="sifreAyarla()">Daire Şifresini Kaydet</button>
+      <div id="passwordMessage" class="message hidden"></div>
+
+      <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
+      <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
+      <button onclick="setAdminPassword()">Yönetici Şifresini Kaydet</button>
+      <div id="adminPasswordMessage" class="message hidden"></div>
+
+
+      <div class="section-divider"></div>
+      <h4>Daire Borç Listesi</h4>
+      <select id="flatSelect" onchange="loadAdminTable()"></select>
+      <table id="adminTable">
+        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+      </table>
+      <div class="totals" id="borcToplam"></div>
+      <div id="adminTableMessage" class="message hidden"></div>
+      <button class="download-btn" onclick="downloadAllDebtsCsv()">Tüm Borçları Excel Olarak İndir</button>
+      <button class="delete-btn" onclick="deleteAllDebts()">Tüm Dairelerin Tüm Borçlarını Sil</button>
+      <button onclick="logout()">Çıkış Yap</button>
+    </div>
+  </div>
+
+  <script type="module">
+    // --- Firebase SDK Importları ve Başlangıç ---
+    // Bu satırlardaki "10.X.X" kısmını Firebase konsolunuzdaki güncel sürümle değiştirin.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js"; // Sürümü güncelleyin!
+    import { 
+      getFirestore, 
+      collection, 
+      getDocs, 
+      doc, 
+      setDoc, 
+      addDoc, 
+      deleteDoc, 
+      updateDoc, 
+      getDoc, 
+      query, 
+      where 
+    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"; // Sürümü güncelleyin!
+
+    // !!! BURAYI KENDİ FIREBASE AYARLARINIZLA DEĞİŞTİRİN !!!
+ const firebaseConfig = {
+    apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
+    authDomain: "yildizkonaklariaidat.firebaseapp.com",
+    projectId: "yildizkonaklariaidat",
+    storageBucket: "yildizkonaklariaidat.firebasestorage.app",
+    messagingSenderId: "51493869354",
+    appId: "1:51493869354:web:556e64fc918fcc813c3053",
+    measurementId: "G-4110SM95RV"
+  };
+
+    // Firebase'i başlat
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Global olarak erişilebilir yapmak için (basitlik adına)
+    window.db = db;
+    window.collection = collection;
+    window.getDocs = getDocs;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.addDoc = addDoc;
+    window.deleteDoc = deleteDoc;
+    window.updateDoc = updateDoc;
+    window.getDoc = getDoc;
+    window.query = query;
+    window.where = where;
+ // --- Firebase SDK importları ve ayarlarınızdan sonra ---
+// ... (diğer Firebase import ve window atamalarınız)
+// window.query = query;
+// window.where = where;
+
+// HTML'den doğrudan çağrılması gereken fonksiyonları global yapıyoruz
+window.login = login;
+window.logout = logout;
+window.loadUserTable = loadUserTable; // Kullanıcı paneli için
+window.fillFlatSelects = fillFlatSelects; // Admin paneli için
+window.loadAdminTable = loadAdminTable; // Admin paneli için
+window.markPaid = markPaid;
+window.ekleBorc = ekleBorc;
+window.silBorc = silBorc;
+window.editDebt = editDebt;
+window.updateAidatTutari = updateAidatTutari;
+window.addAdvanceToAll = addAdvanceToAll;
+window.sifreAyarla = sifreAyarla;
+window.setAdminPassword = setAdminPassword;
+window.deleteAllDebts = deleteAllDebts;
+window.downloadAllDebtsCsv = downloadAllDebtsCsv;
+
+// Yardımcı fonksiyonu da global yapalım ki diğer fonksiyonlar erişebilsin
+window.showMessage = showMessage; 
+
+// ... (diğer fonksiyon tanımlarınız)
+    // Uygulama genelinde kullanılacak değişkenler (başlangıç değerleri)
+    const defaultAidat = 2000;
+    let aidatTutari = defaultAidat; // Firebase'den yüklenecek
+    
+    // Admin ve daire şifreleri Firebase'den yüklenecek, bu sadece bir başlangıç şablonu.
+    // İlk yüklemede Firebase'de yoksa bu varsayılan değerler kaydedilecek.
+    let adminCredentials = { username: "admin", password: "admin123" }; 
+    let passwords = {}; // Daire şifreleri Firebase'den yüklenecek
+    let allApartmentDebts = {}; // Tüm dairelerin borçları Firebase'den yüklenecek, CSV için kullanılacak.
+
+    const daireler = [];
+    ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
+      for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`);
+    });
+
+    // --- Yardımcı Fonksiyonlar (Arayüz Geri Bildirimi) ---
+    function showMessage(elementId, message, isError = false) {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.classList.remove('hidden');
+        if (isError) {
+            element.classList.remove('message');
+            element.classList.add('error-message');
+        } else {
+            element.classList.remove('error-message');
+            element.classList.add('message');
+        }
+        setTimeout(() => {
+            element.classList.add('hidden');
+        }, 3000);
+    }
+
+    // --- Firebase Veri Yükleme ve Başlangıç Ayarları ---
+    async function loadAllDataFromFirebase() {
+        try {
+            // Admin Kimlik Bilgilerini Yükle veya Oluştur
+            const adminDocRef = doc(db, 'admin', 'credentials');
+            const adminDocSnap = await getDoc(adminDocRef);
+            if (adminDocSnap.exists()) {
+                adminCredentials = adminDocSnap.data();
+            } else {
+                await setDoc(adminDocRef, adminCredentials); // Yoksa varsayılanı kaydet
+            }
+
+            // Aidat Tutarını Yükle veya Oluştur
+            const settingsDocRef = doc(db, 'settings', 'aidat');
+            const settingsDocSnap = await getDoc(settingsDocRef);
+            if (settingsDocSnap.exists()) {
+                aidatTutari = settingsDocSnap.data().amount || defaultAidat;
+            } else {
+                await setDoc(settingsDocRef, { amount: defaultAidat }); // Yoksa varsayılanı kaydet
+            }
+
+            // Tüm Dairelerin Bilgilerini (Şifreler Dahil) ve Borçlarını Yükle
+            const apartmentsCollection = collection(db, 'apartments');
+            const apartmentSnapshot = await getDocs(apartmentsCollection);
+
+            // Tüm daireler için başlangıç veri yapısını kontrol et ve eksikse oluştur
+            for (const daire of daireler) {
+                const flatDocRef = doc(db, 'apartments', daire);
+                const flatDocSnap = await getDoc(flatDocRef);
+
+                if (!flatDocSnap.exists()) {
+                    // Daire belgesi yoksa oluştur (varsayılan şifre ile)
+                    await setDoc(flatDocRef, { password: "1234" }); 
+                    passwords[daire] = "1234"; // Bellekte de tut
+                } else {
+                    passwords[daire] = flatDocSnap.data().password || "1234"; // Şifreyi yükle
+                }
+
+                // Borçları yükle (CSV indirme için tüm borçları tutacağız)
+                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                const debtSnapshot = await getDocs(debtsCollectionRef);
+                allApartmentDebts[daire] = []; // Her daire için borç dizisini sıfırla
+
+                debtSnapshot.forEach(debtDoc => {
+                    allApartmentDebts[daire].push({ ...debtDoc.data(), id: debtDoc.id }); // Borçları id'leriyle birlikte kaydet
+                });
+            }
+            
+            console.log("Veriler Firebase'den başarıyla yüklendi.");
+        } catch (error) {
+            console.error("Firebase'den veri yüklenirken hata oluştu:", error);
+            showMessage("loginMessage", "Veriler yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
+        }
+    }
+
+    // --- Giriş/Çıkış İşlevselliği ---
+    async function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const loginMessage = document.getElementById("loginMessage");
+
+      // Admin girişi
+      if (username === adminCredentials.username && password === adminCredentials.password) {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("adminPanel").classList.remove("hidden");
+        fillFlatSelects();
+        loadAdminTable();
+        loginMessage.classList.add("hidden");
+        return;
+      }
+
+      // Daire girişi
+      const flatDocRef = doc(db, 'apartments', username);
+      const flatDocSnap = await getDoc(flatDocRef);
+
+      if (!flatDocSnap.exists()) {
+        showMessage("loginMessage", "Kullanıcı bulunamadı.", true);
+        return;
+      }
+
+      const flatData = flatDocSnap.data();
+      if (flatData.password !== password) {
+        showMessage("loginMessage", "Şifre yanlış.", true);
+        return;
+      }
+
+      document.getElementById("login").classList.add("hidden");
+      document.getElementById("userPanel").classList.remove("hidden");
+      document.getElementById("userNameDisplay").textContent = username;
+      loadUserTable(username);
+      loginMessage.classList.add("hidden");
+    }
+
+    function logout() {
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      location.reload(); // Sayfayı yenileyerek durumu sıfırla ve Firebase'den tekrar yükle
+    }
+
+    // --- Kullanıcı Paneli Fonksiyonları ---
+    async function loadUserTable(username) {
+      const table = document.getElementById("userTable");
+      table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>';
+      let totalPaid = 0;
+      let totalUnpaid = 0;
+
+      try {
+        const debtsCollectionRef = collection(db, 'apartments', username, 'debts');
+        const debtSnapshot = await getDocs(debtsCollectionRef);
+
+        if (debtSnapshot.empty) {
+            table.innerHTML += '<tr><td colspan="4">Borcunuz bulunmamaktadır.</td></tr>';
+            document.getElementById("userDebtTotals").textContent = `Ödenen Toplam: 0 TL | Ödenmeyen Toplam: 0 TL`;
+            return;
+        }
+
+        debtSnapshot.forEach(doc => {
+          const entry = doc.data();
+          const statusText = entry.odendi ? "Ödendi" : "Bekliyor";
+          const rowClass = entry.odendi ? "" : "unpaid-debt";
+          table.innerHTML += `<tr class="${rowClass}"><td>${entry.ay}</td><td>${entry.tip}</td><td>${entry.tutar} TL</td><td>${statusText}</td></tr>`;
+
+          if (entry.odendi) {
+              totalPaid += Number(entry.tutar);
+          } else {
+              totalUnpaid += Number(entry.tutar);
+          }
+        });
+        document.getElementById("userDebtTotals").textContent = `Ödenen Toplam: ${totalPaid} TL | Ödenmeyen Toplam: ${totalUnpaid} TL`;
+      } catch (error) {
+        console.error("Kullanıcı borçları yüklenirken hata:", error);
+        showMessage("loginMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
+      }
+    }
+
+    // --- Yönetici Paneli Fonksiyonları ---
+    function fillFlatSelects() {
+      const selects = ["flatSelect", "borcKime", "sifreDaire"];
+      selects.forEach(id => {
+        const select = document.getElementById(id);
+        select.innerHTML = "";
+        daireler.forEach(daire => {
+          const option = document.createElement("option");
+          option.value = daire;
+          option.textContent = daire;
+          select.appendChild(option);
+        });
+      });
+    }
+
+    async function loadAdminTable() {
+      const daire = document.getElementById("flatSelect").value;
+      const table = document.getElementById("adminTable");
+      table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>';
+      let toplam = 0, odenen = 0;
+
+      try {
+        const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+        const debtSnapshot = await getDocs(debtsCollectionRef);
+
+        if (debtSnapshot.empty) {
+            table.innerHTML += '<tr><td colspan="5">Bu daire için borç bulunmamaktadır.</td></tr>';
+            document.getElementById("borcToplam").textContent = `Toplam: 0 TL | Ödenen: 0 TL | Kalan: 0 TL`;
+            return;
+        }
+
+        debtSnapshot.forEach(doc => {
+          const entry = doc.data();
+          const debtId = doc.id; // Belge ID'sini kullanacağız
+          toplam += Number(entry.tutar);
+          if (entry.odendi) odenen += Number(entry.tutar);
+          table.innerHTML += `<tr>
+            <td>${entry.ay}</td>
+            <td>${entry.tip}</td>
+            <td>${entry.tutar} TL</td>
+            <td>${entry.odendi ? "Ödendi" : "Bekliyor"}</td>
+            <td>
+              ${entry.odendi ? "-" : `<button onclick="markPaid('${daire}', '${debtId}')">Ödendi</button>`}
+              <button class="edit-btn" onclick="editDebt('${daire}', '${debtId}')">Düzenle</button>
+              <button class="delete-btn" onclick="silBorc('${daire}', '${debtId}')">Sil</button>
+            </td>
+          </tr>`;
+        });
+        document.getElementById("borcToplam").textContent = `Toplam: ${toplam} TL | Ödenen: ${odenen} TL | Kalan: ${toplam - odenen} TL`;
+      } catch (error) {
+        console.error("Yönetici borçları yüklenirken hata:", error);
+        showMessage("adminTableMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
+      }
+    }
+
+    async function markPaid(daire, debtId) {
+      const debtDocRef = doc(db, 'apartments', daire, 'debts', debtId);
+      const debtDocSnap = await getDoc(debtDocRef);
+
+      if (!debtDocSnap.exists()) {
+        showMessage("adminTableMessage", "Borç bulunamadı.", true);
+        return;
+      }
+      const currentDebt = debtDocSnap.data();
+
+      if (confirm(`${currentDebt.ay} ayına ait ${currentDebt.tutar} TL'lik borcu ödendi olarak işaretlemek istediğinizden emin misiniz?`)) {
+          try {
+              await updateDoc(debtDocRef, { odendi: true });
+              showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
+              // Borç ödendi olarak işaretlendikten sonra allApartmentDebts'i de güncelle
+              const daireBorclari = allApartmentDebts[daire];
+              if (daireBorclari) {
+                  const borcIndex = daireBorclari.findIndex(b => b.id === debtId);
+                  if (borcIndex !== -1) {
+                      daireBorclari[borcIndex].odendi = true;
+                  }
+              }
+              loadAdminTable(); // Tabloyu yenile
+          } catch (error) {
+              console.error("Borç ödendi olarak işaretlenirken hata:", error);
+              showMessage("adminTableMessage", "Borç güncellenirken bir sorun oluştu.", true);
+          }
+      }
+    }
+
+    async function ekleBorc() {
+      const daire = document.getElementById("borcKime").value;
+      const ay = document.getElementById("borcAy").value.trim();
+      const tutar = Number(document.getElementById("borcTutar").value);
+      const tip = document.getElementById("borcTipi").value;
+
+      if (!ay || isNaN(tutar) || tutar <= 0) {
+        showMessage("addDebtMessage", "Lütfen ay ve geçerli bir tutar giriniz.", true);
+        return;
+      }
+
+      try {
+        const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+        const q = query(debtsCollectionRef, where("ay", "==", ay), where("tip", "==", tip), where("odendi", "==", false));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            showMessage("addDebtMessage", `${daire} dairesi için ${ay} ayında ${tip} borcu zaten mevcut ve ödenmemiş.`, true);
+            return;
+        }
+        
+        const newDebtRef = await addDoc(debtsCollectionRef, { ay, tutar, tip, odendi: false });
+        // allApartmentDebts'i de güncelle
+        if (!allApartmentDebts[daire]) {
+            allApartmentDebts[daire] = [];
+        }
+        allApartmentDebts[daire].push({ ay, tutar, tip, odendi: false, id: newDebtRef.id });
+
+        loadAdminTable();
+        showMessage("addDebtMessage", "Yeni borç başarıyla eklendi.");
+        document.getElementById("borcAy").value = "";
+        document.getElementById("borcTutar").value = "";
+      } catch (error) {
+        console.error("Borç eklenirken hata:", error);
+        showMessage("addDebtMessage", "Borç eklenirken bir sorun oluştu.", true);
+      }
+    }
+
+    async function silBorc(daire, debtId) {
+        const debtDocRef = doc(db, 'apartments', daire, 'debts', debtId);
+        const debtDocSnap = await getDoc(debtDocRef);
+
+        if (!debtDocSnap.exists()) {
+          showMessage("adminTableMessage", "Borç bulunamadı.", true);
+          return;
+        }
+        const currentDebt = debtDocSnap.data();
+
+        if (confirm(`Bu borcu silmek istediğinizden emin misiniz? (Ay: ${currentDebt.ay}, Tutar: ${currentDebt.tutar} TL)`)) {
+            try {
+                await deleteDoc(debtDocRef);
+                showMessage("adminTableMessage", "Borç başarıyla silindi.");
+                // allApartmentDebts'i de güncelle
+                const daireBorclari = allApartmentDebts[daire];
+                if (daireBorclari) {
+                    allApartmentDebts[daire] = daireBorclari.filter(b => b.id !== debtId);
+                }
+                loadAdminTable();
+            } catch (error) {
+                console.error("Borç silinirken hata:", error);
+                showMessage("adminTableMessage", "Borç silinirken bir sorun oluştu.", true);
+            }
+        }
+    }
+
+    async function editDebt(daire, debtId) {
+        const debtDocRef = doc(db, 'apartments', daire, 'debts', debtId);
+        const debtDocSnap = await getDoc(debtDocRef);
+
+        if (!debtDocSnap.exists()) {
+          showMessage("adminTableMessage", "Borç bulunamadı.", true);
+          return;
+        }
+        const currentDebt = debtDocSnap.data();
+
+        const newAy = prompt(`"${currentDebt.ay}" ayını düzenle (örn: Ağustos 2025):`, currentDebt.ay);
+        if (newAy === null) return;
+
+        let newTutar;
+        do {
+            newTutar = prompt(`"${currentDebt.tutar}" TL tutarını düzenle:`, currentDebt.tutar);
+            if (newTutar === null) return;
+            newTutar = Number(newTutar);
+        } while (isNaN(newTutar) || newTutar <= 0);
+
+        const newTip = prompt(`"${currentDebt.tip}" tipini düzenle (aidat/avans):`, currentDebt.tip);
+        if (newTip === null || (newTip !== 'aidat' && newTip !== 'avans')) {
+            showMessage("adminTableMessage", "Geçersiz borç tipi. 'aidat' veya 'avans' olmalı.", true);
+            return;
+        }
+
+        try {
+            // Düzenleme sonrası aynı ay ve tipte ödenmemiş borç var mı kontrol et (kendisi hariç)
+            const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+            const q = query(debtsCollectionRef, 
+                where("ay", "==", newAy), 
+                where("tip", "==", newTip), 
+                where("odendi", "==", false)
+            );
+            const querySnapshot = await getDocs(q);
+
+            const isDuplicateAfterEdit = !querySnapshot.empty && querySnapshot.docs.some(doc => doc.id !== debtId);
+
+            if (isDuplicateAfterEdit) {
+                showMessage("adminTableMessage", `${daire} dairesi için ${newAy} ayında ${newTip} borcu zaten mevcut ve ödenmemiş. Düzenleme yapılamadı.`, true);
+                return;
+            }
+
+            await updateDoc(debtDocRef, { 
+                ay: newAy.trim(),
+                tutar: newTutar,
+                tip: newTip.trim()
+            });
+
+            showMessage("adminTableMessage", "Borç başarıyla düzenlendi.");
+            // allApartmentDebts'i de güncelle
+            const daireBorclari = allApartmentDebts[daire];
+            if (daireBorclari) {
+                const borcIndex = daireBorclari.findIndex(b => b.id === debtId);
+                if (borcIndex !== -1) {
+                    daireBorclari[borcIndex].ay = newAy.trim();
+                    daireBorclari[borcIndex].tutar = newTutar;
+                    daireBorclari[borcIndex].tip = newTip.trim();
+                }
+            }
+            loadAdminTable();
+        } catch (error) {
+            console.error("Borç düzenlenirken hata:", error);
+            showMessage("adminTableMessage", "Borç düzenlenirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function updateAidatTutari() {
+      const yeni = Number(document.getElementById("aidatTutariInput").value);
+      if (isNaN(yeni) || yeni <= 0) {
+        showMessage("aidatMessage", "Lütfen geçerli bir aidat tutarı giriniz.", true);
+        return;
+      }
+
+      const currentDate = new Date();
+      const currentMonth = currentDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+
+      try {
+        const settingsDocRef = doc(db, 'settings', 'aidat');
+        await setDoc(settingsDocRef, { amount: yeni });
+        aidatTutari = yeni; 
+
+        let addedCount = 0;
+        for (const daire of daireler) {
+            const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+            const q = query(debtsCollectionRef, where("ay", "==", currentMonth), where("tip", "==", "aidat"), where("odendi", "==", false));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                const newDebtRef = await addDoc(debtsCollectionRef, { ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false });
+                addedCount++;
+                // allApartmentDebts'i de güncelle
+                if (!allApartmentDebts[daire]) {
+                    allApartmentDebts[daire] = [];
+                }
+                allApartmentDebts[daire].push({ ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false, id: newDebtRef.id });
+            }
+        }
+        
+        if (addedCount > 0) {
+            showMessage("aidatMessage", `Aidat tutarı ${aidatTutari} TL olarak güncellendi ve ${addedCount} daireye ${currentMonth} ayı için aidat borcu eklendi.`, false);
+        } else {
+            showMessage("aidatMessage", `Aidat tutarı ${aidatTutari} TL olarak güncellendi. Tüm dairelerde ${currentMonth} ayı aidat borcu zaten mevcut veya ödenmiş.`, false);
+        }
+        document.getElementById("aidatTutariInput").value = "";
+        loadAdminTable();
+      } catch (error) {
+        console.error("Aidat tutarı güncellenirken hata:", error);
+        showMessage("aidatMessage", "Aidat tutarı güncellenirken bir sorun oluştu.", true);
+      }
+    }
+
+    async function addAdvanceToAll() {
+        const avans = Number(document.getElementById("avansTutariInput").value);
+        if (isNaN(avans) || avans <= 0) {
+            showMessage("avansMessage", "Lütfen geçerli bir avans tutarı giriniz.", true);
+            return;
+        }
+
+        const currentDate = new Date();
+        const currentMonth = currentDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+
+        try {
+            let addedCount = 0;
+            for (const daire of daireler) {
+                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                const q = query(debtsCollectionRef, where("ay", "==", currentMonth), where("tip", "==", "avans"), where("odendi", "==", false));
+                const querySnapshot = await getDocs(q);
+                
+                if (querySnapshot.empty) {
+                    const newDebtRef = await addDoc(debtsCollectionRef, { ay: currentMonth, tutar: avans, tip: 'avans', odendi: false });
+                    addedCount++;
+                    // allApartmentDebts'i de güncelle
+                    if (!allApartmentDebts[daire]) {
+                        allApartmentDebts[daire] = [];
+                    }
+                    allApartmentDebts[daire].push({ ay: currentMonth, tutar: avans, tip: 'avans', odendi: false, id: newDebtRef.id });
+                }
+            }
+            
+            if (addedCount > 0) {
+                showMessage("avansMessage", `${addedCount} daireye ${currentMonth} ayı için ${avans} TL avans borcu eklendi.`, false);
+            } else {
+                showMessage("avansMessage", `Tüm dairelerde ${currentMonth} ayı için zaten avans borcu mevcut veya ödenmiş.`, false);
+            }
+            document.getElementById("avansTutariInput").value = "";
+            loadAdminTable();
+        } catch (error) {
+            console.error("Avans eklenirken hata:", error);
+            showMessage("avansMessage", "Avans eklenirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function sifreAyarla() {
+      const daire = document.getElementById("sifreDaire").value;
+      const yeniSifre = document.getElementById("yeniSifre").value;
+      if (yeniSifre.length < 3) {
+        showMessage("passwordMessage", "Şifre en az 3 karakter olmalıdır.", true);
+        return;
+      }
+      try {
+        const flatDocRef = doc(db, 'apartments', daire);
+        await setDoc(flatDocRef, { password: yeniSifre }, { merge: true }); // Sadece şifreyi güncelle, diğer alanları koru
+        passwords[daire] = yeniSifre; // Bellekteki global değişkeni de güncelle
+        showMessage("passwordMessage", `${daire} için şifre başarıyla güncellendi.`);
+        document.getElementById("yeniSifre").value = "";
+      } catch (error) {
+        console.error("Daire şifresi güncellenirken hata:", error);
+        showMessage("passwordMessage", "Şifre güncellenirken bir sorun oluştu.", true);
+      }
+    }
+
+    async function setAdminPassword() {
+        const newAdminPass = document.getElementById("adminYeniSifre").value;
+        if (newAdminPass.length < 5) {
+            showMessage("adminPasswordMessage", "Yönetici şifresi en az 5 karakter olmalıdır.", true);
+            return;
+        }
+        try {
+            const adminDocRef = doc(db, 'admin', 'credentials');
+            await setDoc(adminDocRef, { username: "admin", password: newAdminPass });
+            adminCredentials.password = newAdminPass; // Bellekteki global değişkeni de güncelle
+            showMessage("adminPasswordMessage", "Yönetici şifresi başarıyla güncellendi. Lütfen bir sonraki girişinizde yeni şifrenizi kullanın.", false);
+            document.getElementById("adminYeniSifre").value = "";
+        } catch (error) {
+            console.error("Yönetici şifresi güncellenirken hata:", error);
+            showMessage("adminPasswordMessage", "Yönetici şifresi güncellenirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function deleteAllDebts() {
+        if (confirm("Tüm dairelere ait tüm borçları silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm borç kayıtlarını sıfırlayacaktır!")) {
+            try {
+                for (const daire of daireler) {
+                    const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                    const debtSnapshot = await getDocs(debtsCollectionRef);
+                    
+                    // Borçları toplu silmek için batch kullanmak daha verimli olurdu,
+                    // ancak basitlik adına tek tek siliyoruz.
+                    for (const docToDelete of debtSnapshot.docs) {
+                        await deleteDoc(doc(debtsCollectionRef, docToDelete.id));
+                    }
+                    allApartmentDebts[daire] = []; // Bellekteki global veriyi de sıfırla
+                }
+                loadAdminTable(); // Tabloyu güncelleyin
+                showMessage("adminTableMessage", "Tüm dairelere ait tüm borçlar başarıyla silindi.", false);
+            } catch (error) {
+                console.error("Tüm borçlar silinirken hata:", error);
+                showMessage("adminTableMessage", "Tüm borçlar silinirken bir sorun oluştu.", true);
+            }
+        }
+    }
+
+    async function downloadAllDebtsCsv() {
+        // CSV indirmeden önce verilerin güncel olduğundan emin olmak için tekrar yükleyelim
+        await loadAllDataFromFirebase(); 
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+        csvContent += "Daire,Ay,Tip,Tutar (TL),Durum\n";
+
+        daireler.forEach(daire => {
+            if (allApartmentDebts[daire] && allApartmentDebts[daire].length > 0) {
+                allApartmentDebts[daire].forEach(entry => {
+                    const status = entry.odendi ? "Ödendi" : "Bekliyor";
+                    csvContent += `${daire},"${entry.ay}","${entry.tip}",${entry.tutar},"${status}"\n`;
+                });
+            } else {
+                csvContent += `${daire},"Borç Yok","-","-","-"\n`;
+            }
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        const filenameDate = `${dd}-${mm}-${yyyy}`;
+
+        link.setAttribute("download", `Ayvalik_Yildiz_Konaklari_Borc_Listesi_${filenameDate}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showMessage("adminTableMessage", "Tüm borçlar Excel dosyası olarak indirildi.");
+    }
+
+    // --- Uygulama Başlangıcı ---
+    // Sayfa yüklendiğinde tüm verileri Firebase'den çek
+    loadAllDataFromFirebase().then(() => {
+        // Veriler yüklendikten sonra giriş panelini göster
+        document.getElementById("login").classList.remove("hidden");
+    }).catch(error => {
+        console.error("Uygulama başlatılırken hata:", error);
+        showMessage("loginMessage", "Sistem başlatılırken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
+    });
+
+  </script>
+</body>
+</html>
