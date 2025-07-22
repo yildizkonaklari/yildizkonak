@@ -34,16 +34,16 @@
     <h1>Ayvalık Yıldız Konakları</h1>
     <h2>Aidat Takip Sistemi</h2>
 
-    <div id="login"> <h3>Giriş Yap</h3>
+    <div id="login" class="hidden"> <h3>Giriş Yap</h3>
       <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
-      <input type="password" id="password" placeholder="Şifre (örn: 1234)">
+      <input type="password" id="password" placeholder="Şifre">
       <button onclick="login()">Giriş</button>
       <div id="loginMessage" class="message hidden"></div>
     </div>
 
     <div id="userPanel" class="hidden">
       <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
-      <h4>Borçlarınız</h4>
+      <h4>Ödemeleriniz ve Borçlarınız</h4>
       <table id="userTable">
         <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
       </table>
