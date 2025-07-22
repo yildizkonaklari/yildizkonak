@@ -135,12 +135,13 @@
       updateDoc, 
       getDoc, 
       query, 
-      where 
+      where,
+      writeBatch // Batch işlemleri için eklendi
     } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"; 
     import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
     // !!! BURADAKİ firebaseConfig OBJESİNİ KENDİ FIREBASE KONSOLUNUZDAN ALDIĞINIZ BİLGİLERLE DEĞİŞTİRİNİZ !!!
-    const firebaseConfig = {
+ const firebaseConfig = {
     apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
     authDomain: "yildizkonaklariaidat.firebaseapp.com",
     projectId: "yildizkonaklariaidat",
@@ -171,6 +172,7 @@
     window.uploadBytes = uploadBytes;
     window.getDownloadURL = getDownloadURL;
     window.deleteObject = deleteObject;
+    window.writeBatch = writeBatch; // Yeni eklendi
 
     // Uygulama genelinde kullanılacak değişkenler (başlangıç değerleri)
     const defaultAidat = 2000;
@@ -404,7 +406,7 @@
           try {
               await updateDoc(debtDocRef, { odendi: true });
               showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
-              // allApartmentDebts'i de güncelle
+              // allApartmentDebts'i de güncelle (yedekleme için)
               const daireBorclari = allApartmentDebts[daire];
               if (daireBorclari) {
                   const borcIndex = daireBorclari.findIndex(b => b.id === debtId);
@@ -442,7 +444,7 @@
         }
         
         const newDebtRef = await addDoc(debtsCollectionRef, { ay, tutar, tip, odendi: false });
-        // allApartmentDebts'i de güncelle
+        // allApartmentDebts'i de güncelle (yedekleme için)
         if (!allApartmentDebts[daire]) {
             allApartmentDebts[daire] = [];
         }
@@ -472,7 +474,7 @@
             try {
                 await deleteDoc(debtDocRef);
                 showMessage("adminTableMessage", "Borç başarıyla silindi.");
-                // allApartmentDebts'i de güncelle
+                // allApartmentDebts'i de güncelle (yedekleme için)
                 const daireBorclari = allApartmentDebts[daire];
                 if (daireBorclari) {
                     allApartmentDebts[daire] = daireBorclari.filter(b => b.id !== debtId);
@@ -535,7 +537,7 @@
             });
 
             showMessage("adminTableMessage", "Borç başarıyla düzenlendi.");
-            // allApartmentDebts'i de güncelle
+            // allApartmentDebts'i de güncelle (yedekleme için)
             const daireBorclari = allApartmentDebts[daire];
             if (daireBorclari) {
                 const borcIndex = daireBorclari.findIndex(b => b.id === debtId);
@@ -576,7 +578,7 @@
             if (querySnapshot.empty) {
                 const newDebtRef = await addDoc(debtsCollectionRef, { ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false });
                 addedCount++;
-                // allApartmentDebts'i de güncelle
+                // allApartmentDebts'i de güncelle (yedekleme için)
                 if (!allApartmentDebts[daire]) {
                     allApartmentDebts[daire] = [];
                 }
@@ -617,7 +619,7 @@
                 if (querySnapshot.empty) {
                     const newDebtRef = await addDoc(debtsCollectionRef, { ay: currentMonth, tutar: avans, tip: 'avans', odendi: false });
                     addedCount++;
-                    // allApartmentDebts'i de güncelle
+                    // allApartmentDebts'i de güncelle (yedekleme için)
                     if (!allApartmentDebts[daire]) {
                         allApartmentDebts[daire] = [];
                     }
@@ -701,9 +703,8 @@
                     const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
                     const debtSnapshot = await getDocs(debtsCollectionRef);
                     
-                    // Toplu silme (batch) daha verimli olur, ama basitlik adına tek tek siliyoruz
-                    // Eğer çok fazla borç kaydınız varsa, bu kısım zaman alabilir.
-                    const batch = db.batch();
+                    // Firestore batch kullanarak toplu silme
+                    const batch = writeBatch(db); // writeBatch ile başlatıldı
                     debtSnapshot.forEach(docToDelete => {
                         batch.delete(doc(debtsCollectionRef, docToDelete.id));
                     });
@@ -731,7 +732,11 @@
             if (allApartmentDebts[daire] && allApartmentDebts[daire].length > 0) {
                 allApartmentDebts[daire].forEach(entry => {
                     const status = entry.odendi ? "Ödendi" : "Bekliyor";
-                    csvContent += `${daire},"${entry.ay}","${entry.tip}",${entry.tutar},"${status}"\n`;
+                    // CSV için virgüllerden ve satır sonu karakterlerinden kaçış yap
+                    const ayEscaped = `"${String(entry.ay).replace(/"/g, '""')}"`;
+                    const tipEscaped = `"${String(entry.tip).replace(/"/g, '""')}"`;
+                    const statusEscaped = `"${String(status).replace(/"/g, '""')}"`;
+                    csvContent += `${daire},${ayEscaped},${tipEscaped},${entry.tutar},${statusEscaped}\n`;
                 });
             } else {
                 csvContent += `${daire},"Borç Yok","-","-","-"\n`;
@@ -764,11 +769,12 @@
             await loadAuthDataFromFirebase(); // Admin ve şifreler
             await loadAllApartmentDebtsForBackup(); // Borçlar
 
+            // Yedeklenecek tüm veriyi tek bir obje içinde topla
             const backupData = {
                 adminCredentials: adminCredentials,
                 aidatTutari: aidatTutari,
                 passwords: passwords,
-                allApartmentDebts: allApartmentDebts
+                allApartmentDebts: allApartmentDebts // Borçlar artık burada dolu olacak
             };
 
             const jsonString = JSON.stringify(backupData, null, 2);
@@ -782,7 +788,18 @@
             const storageRef = ref(storage, `backups/${filename}`);
             await uploadBytes(storageRef, blob);
 
-            showMessage("backupRestoreMessage", `Yedek başarıyla alındı: ${filename}`, false);
+            showMessage("backupRestoreMessage", `Yedek başarıyla alındı ve Firebase Storage'a yüklendi: ${filename}`, false);
+
+            // Kullanıcının indirmesi için de bir link oluştur
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url); // Bellek boşaltma
+
         } catch (error) {
             console.error("Yedekleme hatası:", error);
             showMessage("backupRestoreMessage", `Yedekleme sırasında hata oluştu: ${error.message}`, true);
@@ -808,38 +825,34 @@
                     return;
                 }
 
+                const batch = writeBatch(db); // Tüm işlemleri tek bir batch'te yap
+
                 // Admin verilerini yükle
                 const adminDocRef = doc(db, 'admin', 'credentials');
-                await setDoc(adminDocRef, backupData.adminCredentials);
+                batch.set(adminDocRef, backupData.adminCredentials);
 
                 // Ayar verilerini yükle
                 const settingsDocRef = doc(db, 'settings', 'aidat');
-                await setDoc(settingsDocRef, { amount: backupData.aidatTutari });
+                batch.set(settingsDocRef, { amount: backupData.aidatTutari });
 
                 // Daire şifrelerini ve borçlarını yükle
                 for (const daire of daireler) {
                     const flatDocRef = doc(db, 'apartments', daire);
                     // Daire belgesini ve şifresini güncelle
-                    await setDoc(flatDocRef, { password: backupData.passwords[daire] || "1234" }, { merge: true });
+                    batch.set(flatDocRef, { password: backupData.passwords[daire] || "1234" }, { merge: true });
 
-                    // Borçları temizle ve yeniden ekle
+                    // Mevcut borçları sil
                     const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
-                    const currentDebtsSnapshot = await getDocs(debtsCollectionRef);
-                    const batchDelete = db.batch();
+                    const currentDebtsSnapshot = await getDocs(debtsCollectionRef); // Borçları almak için await kullan
                     currentDebtsSnapshot.forEach(docToDelete => {
-                        batchDelete.delete(doc(debtsCollectionRef, docToDelete.id));
+                        batch.delete(doc(debtsCollectionRef, docToDelete.id));
                     });
-                    await batchDelete.commit();
 
-                    const batchAdd = db.batch();
+                    // Yedekdeki borçları yeniden ekle (yeni ID'lerle)
                     if (backupData.allApartmentDebts[daire]) {
                         backupData.allApartmentDebts[daire].forEach(debt => {
-                            // Firestore'a belge eklerken ID'yi kendimiz belirleyemeyiz (addDoc ile)
-                            // veya otomatik ID ile eklemeliyiz. Eğer yedekdeki ID'leri korumak istersek
-                            // setDoc(doc(collectionRef, debt.id), debt) kullanmalıyız.
-                            // Ancak manuel ID'ler çakışmaya neden olabilir, bu yüzden yeni otomatik ID kullanmak daha güvenlidir.
-                            const newDocRef = doc(debtsCollectionRef); // Yeni otomatik ID oluştur
-                            batchAdd.set(newDocRef, { 
+                            const newDebtRef = doc(debtsCollectionRef); // Yeni otomatik ID oluştur
+                            batch.set(newDebtRef, { 
                                 ay: debt.ay,
                                 tip: debt.tip,
                                 tutar: debt.tutar,
@@ -847,9 +860,11 @@
                             });
                         });
                     }
-                    await batchAdd.commit();
                 }
                 
+                // Tüm batch işlemlerini tek seferde commit et
+                await batch.commit();
+
                 showMessage("backupRestoreMessage", "Veriler başarıyla yedekten yüklendi! Lütfen sayfayı yenileyin.", false);
                 setTimeout(() => { location.reload(); }, 2000); // Sayfayı yenile
             } catch (error) {
@@ -877,8 +892,8 @@
     window.setAdminPassword = setAdminPassword;
     window.deleteAllDebts = deleteAllDebts;
     window.downloadAllDebtsCsv = downloadAllDebtsCsv;
-    window.backupData = backupData; // Yeni yedekleme fonksiyonu
-    window.restoreData = restoreData; // Yeni geri yükleme fonksiyonu
+    window.backupData = backupData; 
+    window.restoreData = restoreData; 
     window.showMessage = showMessage; 
 
 
