@@ -212,11 +212,8 @@ window.showMessage = showMessage;
     }
 
     // --- Firebase Veri Yükleme ve Başlangıç Ayarları ---
-  async function loadAllDataFromFirebase() {
-const loginButton = document.getElementById("loginButton"); // Giriş butonunu seç
-
-    try {
-        // ... (Admin, settings ve apartments koleksiyonlarını yükleme/oluşturma kodunuz)
+async function loadAllDataFromFirebase() {
+        try {
             // Admin Kimlik Bilgilerini Yükle veya Oluştur
             const adminDocRef = doc(db, 'admin', 'credentials');
             const adminDocSnap = await getDoc(adminDocRef);
@@ -225,17 +222,7 @@ const loginButton = document.getElementById("loginButton"); // Giriş butonunu s
             } else {
                 await setDoc(adminDocRef, adminCredentials); // Yoksa varsayılanı kaydet
             }
-        console.log("Veriler Firebase'den başarıyla yüklendi.");
-        loginButton.disabled = false; // Veriler yüklendikten sonra butonu aktif et
-        showMessage("loginMessage", "Sistem hazır. Giriş yapabilirsiniz.", false); // Kullanıcıya bilgi ver
 
-    } catch (error) {
-        console.error("Firebase'den veri yüklenirken hata oluştu:", error);
-        showMessage("loginMessage", "Veriler yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
-        // Hata durumunda da butonu aktif etmeyiz, ya da kullanıcıya tekrar deneme seçeneği sunarız.
-        // Şimdilik pasif kalabilir.
-    }
-}
             // Aidat Tutarını Yükle veya Oluştur
             const settingsDocRef = doc(db, 'settings', 'aidat');
             const settingsDocSnap = await getDoc(settingsDocRef);
@@ -278,7 +265,6 @@ const loginButton = document.getElementById("loginButton"); // Giriş butonunu s
             showMessage("loginMessage", "Veriler yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
         }
     }
-
     // --- Giriş/Çıkış İşlevselliği ---
     async function login() {
       const username = document.getElementById("username").value.trim();
