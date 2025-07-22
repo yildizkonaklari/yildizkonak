@@ -212,58 +212,59 @@ window.showMessage = showMessage;
     }
 
     // --- Firebase Veri Yükleme ve Başlangıç Ayarları ---
-  // Eski loadAllDataFromFirebase fonksiyonunuzu bu şekilde ikiye bölebilirsiniz:
-
-async function loadAuthDataFromFirebase() { // Sadece kimlik doğrulama verilerini yükle
-    const loginButton = document.getElementById("loginButton");
-    try {
-        // Admin Kimlik Bilgilerini Yükle veya Oluştur
-        const adminDocRef = doc(db, 'admin', 'credentials');
-        const adminDocSnap = await getDoc(adminDocRef);
-        if (adminDocSnap.exists()) {
-            adminCredentials = adminDocSnap.data();
-        } else {
-            await setDoc(adminDocRef, adminCredentials); 
-        }
-
-        // Aidat Tutarını Yükle veya Oluştur (Giriş için mutlaka gerekli değil ama sistemsel bir ayar)
-        const settingsDocRef = doc(db, 'settings', 'aidat');
-        const settingsDocSnap = await getDoc(settingsDocRef);
-        if (settingsDocSnap.exists()) {
-            aidatTutari = settingsDocSnap.data().amount || defaultAidat;
-        } else {
-            await setDoc(settingsDocRef, { amount: defaultAidat });
-        }
-
-        // Tüm Dairelerin Şifrelerini Yükle veya Eksikse Oluştur
-        for (const daire of daireler) {
-            const flatDocRef = doc(db, 'apartments', daire);
-            const flatDocSnap = await getDoc(flatDocRef);
-
-            if (!flatDocSnap.exists()) {
-                await setDoc(flatDocRef, { password: "1234" }); 
-                passwords[daire] = "1234";
+  async function loadAllDataFromFirebase() {
+        try {
+            // Admin Kimlik Bilgilerini Yükle veya Oluştur
+            const adminDocRef = doc(db, 'admin', 'credentials');
+            const adminDocSnap = await getDoc(adminDocRef);
+            if (adminDocSnap.exists()) {
+                adminCredentials = adminDocSnap.data();
             } else {
-                passwords[daire] = flatDocSnap.data().password || "1234";
+                await setDoc(adminDocRef, adminCredentials); // Yoksa varsayılanı kaydet
             }
+
+            // Aidat Tutarını Yükle veya Oluştur
+            const settingsDocRef = doc(db, 'settings', 'aidat');
+            const settingsDocSnap = await getDoc(settingsDocRef);
+            if (settingsDocSnap.exists()) {
+                aidatTutari = settingsDocSnap.data().amount || defaultAidat;
+            } else {
+                await setDoc(settingsDocRef, { amount: defaultAidat }); // Yoksa varsayılanı kaydet
+            }
+
+            // Tüm Dairelerin Bilgilerini (Şifreler Dahil) ve Borçlarını Yükle
+            const apartmentsCollection = collection(db, 'apartments');
+            const apartmentSnapshot = await getDocs(apartmentsCollection);
+
+            // Tüm daireler için başlangıç veri yapısını kontrol et ve eksikse oluştur
+            for (const daire of daireler) {
+                const flatDocRef = doc(db, 'apartments', daire);
+                const flatDocSnap = await getDoc(flatDocRef);
+
+                if (!flatDocSnap.exists()) {
+                    // Daire belgesi yoksa oluştur (varsayılan şifre ile)
+                    await setDoc(flatDocRef, { password: "1234" }); 
+                    passwords[daire] = "1234"; // Bellekte de tut
+                } else {
+                    passwords[daire] = flatDocSnap.data().password || "1234"; // Şifreyi yükle
+                }
+
+                // Borçları yükle (CSV indirme için tüm borçları tutacağız)
+                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                const debtSnapshot = await getDocs(debtsCollectionRef);
+                allApartmentDebts[daire] = []; // Her daire için borç dizisini sıfırla
+
+                debtSnapshot.forEach(debtDoc => {
+                    allApartmentDebts[daire].push({ ...debtDoc.data(), id: debtDoc.id }); // Borçları id'leriyle birlikte kaydet
+                });
+            }
+            
+            console.log("Veriler Firebase'den başarıyla yüklendi.");
+        } catch (error) {
+            console.error("Firebase'den veri yüklenirken hata oluştu:", error);
+            showMessage("loginMessage", "Veriler yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
         }
-        
-        console.log("Kimlik doğrulama verileri yüklendi.");
-        loginButton.disabled = false; // Kimlik doğrulama verileri gelince butonu aktif et
-        showMessage("loginMessage", "Sistem hazır. Giriş yapabilirsiniz.", false);
-        
-    } catch (error) {
-        console.error("Firebase'den kimlik doğrulama verileri yüklenirken hata oluştu:", error);
-        showMessage("loginMessage", "Giriş verileri yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
     }
-}
-
-// downloadAllDebtsCsv fonksiyonu için kullanılan allApartmentDebts'i doldurmak için 
-// ayrı bir fonksiyon oluşturabiliriz, veya bu fonksiyonu sadece gerektiğinde çağırabiliriz.
-// Şimdilik downloadAllDebtsCsv() içinde tekrar loadAllDataFromFirebase() çağrısı güvenli bir yöntemdir.
-
-// --- Uygulama Başlangıcı ---
-loadAuthDataFromFirebase(); // Sadece kimlik doğrulama verilerini yükle
 
     // --- Giriş/Çıkış İşlevselliği ---
     async function login() {
