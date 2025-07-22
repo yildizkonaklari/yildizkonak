@@ -759,8 +759,6 @@ const loginButton = document.getElementById("loginButton"); // Giriş butonunu s
     // --- Uygulama Başlangıcı ---
     // Sayfa yüklendiğinde tüm verileri Firebase'den çek
     loadAllDataFromFirebase().then(() => {
-        // Veriler yüklendikten sonra giriş panelini göster
-        document.getElementById("login").classList.remove("hidden");
     }).catch(error => {
         console.error("Uygulama başlatılırken hata:", error);
         showMessage("loginMessage", "Sistem başlatılırken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
