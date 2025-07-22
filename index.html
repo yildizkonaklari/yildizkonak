@@ -11,6 +11,7 @@
     input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
     button { background-color: #468faf; color: white; border: none; cursor: pointer; }
     button:hover { background-color: #014f86; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; } /* Devre dışı buton stili */
     .hidden { display: none; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
@@ -20,8 +21,10 @@
     .delete-btn:hover { background-color: #c82333; }
     .edit-btn { background-color: #ffc107; color: #333; }
     .edit-btn:hover { background-color: #e0a800; }
-    .download-btn { background-color: #28a745; }
-    .download-btn:hover { background-color: #218838; }
+    .download-btn, .backup-btn { background-color: #28a745; }
+    .download-btn:hover, .backup-btn:hover { background-color: #218838; }
+    .upload-btn { background-color: #17a2b8; }
+    .upload-btn:hover { background-color: #138496; }
     .message { text-align: center; color: green; margin-top: 10px; }
     .error-message { text-align: center; color: red; margin-top: 10px; }
     .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; font-size: 0.9em; color: #555; }
@@ -34,16 +37,15 @@
     <h1>Ayvalık Yıldız Konakları</h1>
     <h2>Aidat Takip Sistemi</h2>
 
- <div id="login" class="hidden"> <h3>Giriş Yap</h3>
+    <div id="login"> <h3>Giriş Yap</h3>
       <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
       <input type="password" id="password" placeholder="Şifre (örn: 1234)">
-      <button onclick="login()">Giriş</button>
-      <div id="loginMessage" class="message hidden"></div>
+      <button id="loginButton" onclick="login()" disabled>Giriş</button> <div id="loginMessage" class="message hidden"></div>
     </div>
 
     <div id="userPanel" class="hidden">
       <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
-      <h4>Ödemeleriniz ve Borçlarınız</h4>
+      <h4>Borçlarınız</h4>
       <table id="userTable">
         <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
       </table>
@@ -104,6 +106,15 @@
       <div class="totals" id="borcToplam"></div>
       <div id="adminTableMessage" class="message hidden"></div>
       <button class="download-btn" onclick="downloadAllDebtsCsv()">Tüm Borçları Excel Olarak İndir</button>
+      
+      <div class="section-divider"></div>
+      <h4>Yedekleme ve Geri Yükleme</h4>
+      <button class="backup-btn" onclick="backupData()">Verileri Yedekle</button>
+      <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="restoreData(event)">
+      <button class="upload-btn" onclick="document.getElementById('backupFileInput').click()">Yedekten Yükle</button>
+      <div id="backupRestoreMessage" class="message hidden"></div>
+
+      <div class="section-divider"></div>
       <button class="delete-btn" onclick="deleteAllDebts()">Tüm Dairelerin Tüm Borçlarını Sil</button>
       <button onclick="logout()">Çıkış Yap</button>
     </div>
@@ -111,7 +122,8 @@
 
   <script type="module">
     // --- Firebase SDK Importları ve Başlangıç ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js"; // Sürümü güncelleyin!
+    // !!! BURADAKİ SÜRÜMÜ KENDİ FIREBASE KONSOLUNUZDAKİ GÜNCEL SÜRÜMLE DEĞİŞTİRİNİZ !!!
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js"; 
     import { 
       getFirestore, 
       collection, 
@@ -124,12 +136,11 @@
       getDoc, 
       query, 
       where 
-    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"; // Sürümü güncelleyin!
+    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"; 
+    import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
-    // !!! BURAYI KENDİ FIREBASE AYARLARINIZLA DEĞİŞTİRİN !!!
-    // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
+    // !!! BURADAKİ firebaseConfig OBJESİNİ KENDİ FIREBASE KONSOLUNUZDAN ALDIĞINIZ BİLGİLERLE DEĞİŞTİRİNİZ !!!
+    const firebaseConfig = {
     apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
     authDomain: "yildizkonaklariaidat.firebaseapp.com",
     projectId: "yildizkonaklariaidat",
@@ -138,9 +149,11 @@
     appId: "1:51493869354:web:556e64fc918fcc813c3053",
     measurementId: "G-4110SM95RV"
   };
+
     // Firebase'i başlat
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const storage = getStorage(app); // Firebase Storage'ı başlat
 
     // Global olarak erişilebilir yapmak için (basitlik adına)
     window.db = db;
@@ -154,30 +167,10 @@
     window.getDoc = getDoc;
     window.query = query;
     window.where = where;
-// --- Firebase SDK importları ve ayarlarınızdan sonra ---
-// ... (diğer Firebase import ve window atamalarınız)
-
-// HTML'den doğrudan çağrılması gereken fonksiyonları global yapıyoruz
-window.login = login;
-window.logout = logout;
-window.loadUserTable = loadUserTable; // Kullanıcı paneli için
-window.fillFlatSelects = fillFlatSelects; // Admin paneli için
-window.loadAdminTable = loadAdminTable; // Admin paneli için
-window.markPaid = markPaid;
-window.ekleBorc = ekleBorc;
-window.silBorc = silBorc;
-window.editDebt = editDebt;
-window.updateAidatTutari = updateAidatTutari;
-window.addAdvanceToAll = addAdvanceToAll;
-window.sifreAyarla = sifreAyarla;
-window.setAdminPassword = setAdminPassword;
-window.deleteAllDebts = deleteAllDebts;
-window.downloadAllDebtsCsv = downloadAllDebtsCsv;
-
-// Yardımcı fonksiyonu da global yapalım ki diğer fonksiyonlar erişebilsin
-window.showMessage = showMessage; 
-
-// ... (diğer fonksiyon tanımlarınız)
+    window.ref = ref;
+    window.uploadBytes = uploadBytes;
+    window.getDownloadURL = getDownloadURL;
+    window.deleteObject = deleteObject;
 
     // Uygulama genelinde kullanılacak değişkenler (başlangıç değerleri)
     const defaultAidat = 2000;
@@ -187,7 +180,7 @@ window.showMessage = showMessage;
     // İlk yüklemede Firebase'de yoksa bu varsayılan değerler kaydedilecek.
     let adminCredentials = { username: "admin", password: "admin123" }; 
     let passwords = {}; // Daire şifreleri Firebase'den yüklenecek
-    let allApartmentDebts = {}; // Tüm dairelerin borçları Firebase'den yüklenecek, CSV için kullanılacak.
+    let allApartmentDebts = {}; // Tüm dairelerin borçları Firebase'den yüklenecek (CSV ve yedekleme için)
 
     const daireler = [];
     ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
@@ -212,7 +205,11 @@ window.showMessage = showMessage;
     }
 
     // --- Firebase Veri Yükleme ve Başlangıç Ayarları ---
-async function loadAllDataFromFirebase() {
+    // SADECE kimlik doğrulama için gerekli verileri yükler
+    async function loadAuthDataFromFirebase() {
+        const loginButton = document.getElementById("loginButton");
+        loginButton.disabled = true; // Başlangıçta butonu devre dışı bırak
+
         try {
             // Admin Kimlik Bilgilerini Yükle veya Oluştur
             const adminDocRef = doc(db, 'admin', 'credentials');
@@ -223,7 +220,7 @@ async function loadAllDataFromFirebase() {
                 await setDoc(adminDocRef, adminCredentials); // Yoksa varsayılanı kaydet
             }
 
-            // Aidat Tutarını Yükle veya Oluştur
+            // Aidat Tutarını Yükle veya Oluştur (Sistemsel bir ayar, giriş için zorunlu değil ama iyi olur)
             const settingsDocRef = doc(db, 'settings', 'aidat');
             const settingsDocSnap = await getDoc(settingsDocRef);
             if (settingsDocSnap.exists()) {
@@ -232,39 +229,31 @@ async function loadAllDataFromFirebase() {
                 await setDoc(settingsDocRef, { amount: defaultAidat }); // Yoksa varsayılanı kaydet
             }
 
-            // Tüm Dairelerin Bilgilerini (Şifreler Dahil) ve Borçlarını Yükle
-            const apartmentsCollection = collection(db, 'apartments');
-            const apartmentSnapshot = await getDocs(apartmentsCollection);
-
-            // Tüm daireler için başlangıç veri yapısını kontrol et ve eksikse oluştur
+            // Tüm Dairelerin Şifrelerini Yükle veya Eksikse Oluştur
+            // (Sadece şifreler, borçlar panellere girince yüklenecek)
             for (const daire of daireler) {
                 const flatDocRef = doc(db, 'apartments', daire);
                 const flatDocSnap = await getDoc(flatDocRef);
 
                 if (!flatDocSnap.exists()) {
-                    // Daire belgesi yoksa oluştur (varsayılan şifre ile)
                     await setDoc(flatDocRef, { password: "1234" }); 
                     passwords[daire] = "1234"; // Bellekte de tut
                 } else {
                     passwords[daire] = flatDocSnap.data().password || "1234"; // Şifreyi yükle
                 }
-
-                // Borçları yükle (CSV indirme için tüm borçları tutacağız)
-                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
-                const debtSnapshot = await getDocs(debtsCollectionRef);
-                allApartmentDebts[daire] = []; // Her daire için borç dizisini sıfırla
-
-                debtSnapshot.forEach(debtDoc => {
-                    allApartmentDebts[daire].push({ ...debtDoc.data(), id: debtDoc.id }); // Borçları id'leriyle birlikte kaydet
-                });
             }
             
-            console.log("Veriler Firebase'den başarıyla yüklendi.");
+            console.log("Kimlik doğrulama verileri Firebase'den başarıyla yüklendi.");
+            loginButton.disabled = false; // Veriler yüklendikten sonra butonu aktif et
+            showMessage("loginMessage", "Sistem hazır. Giriş yapabilirsiniz.", false);
+            
         } catch (error) {
             console.error("Firebase'den veri yüklenirken hata oluştu:", error);
-            showMessage("loginMessage", "Veriler yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
+            showMessage("loginMessage", "Giriş verileri yüklenirken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
+            // Hata durumunda butonu aktif etmeyiz, kullanıcı tekrar deneyebilir.
         }
     }
+
     // --- Giriş/Çıkış İşlevselliği ---
     async function login() {
       const username = document.getElementById("username").value.trim();
@@ -276,7 +265,8 @@ async function loadAllDataFromFirebase() {
         document.getElementById("login").classList.add("hidden");
         document.getElementById("adminPanel").classList.remove("hidden");
         fillFlatSelects();
-        loadAdminTable();
+        await loadAllApartmentDebtsForBackup(); // Admin girince tüm borçları yedekleme/CSV için yükle
+        loadAdminTable(); // Admin tablosunu yükle
         loginMessage.classList.add("hidden");
         return;
       }
@@ -299,7 +289,7 @@ async function loadAllDataFromFirebase() {
       document.getElementById("login").classList.add("hidden");
       document.getElementById("userPanel").classList.remove("hidden");
       document.getElementById("userNameDisplay").textContent = username;
-      loadUserTable(username);
+      loadUserTable(username); // Kullanıcı tablosunu yükle
       loginMessage.classList.add("hidden");
     }
 
@@ -414,7 +404,7 @@ async function loadAllDataFromFirebase() {
           try {
               await updateDoc(debtDocRef, { odendi: true });
               showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
-              // Borç ödendi olarak işaretlendikten sonra allApartmentDebts'i de güncelle
+              // allApartmentDebts'i de güncelle
               const daireBorclari = allApartmentDebts[daire];
               if (daireBorclari) {
                   const borcIndex = daireBorclari.findIndex(b => b.id === debtId);
@@ -685,6 +675,25 @@ async function loadAllDataFromFirebase() {
         }
     }
 
+    // Yedekleme ve CSV indirme için tüm borçları bir kereye mahsus yüklüyoruz.
+    async function loadAllApartmentDebtsForBackup() {
+        try {
+            allApartmentDebts = {}; // Sıfırla
+            for (const daire of daireler) {
+                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                const debtSnapshot = await getDocs(debtsCollectionRef);
+                allApartmentDebts[daire] = [];
+                debtSnapshot.forEach(debtDoc => {
+                    allApartmentDebts[daire].push({ ...debtDoc.data(), id: debtDoc.id });
+                });
+            }
+            console.log("Tüm daire borçları yedekleme için yüklendi.");
+        } catch (error) {
+            console.error("Tüm daire borçları yüklenirken hata:", error);
+            showMessage("adminTableMessage", "Borçlar yüklenirken bir sorun oluştu (yedekleme için).", true);
+        }
+    }
+
     async function deleteAllDebts() {
         if (confirm("Tüm dairelere ait tüm borçları silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm borç kayıtlarını sıfırlayacaktır!")) {
             try {
@@ -692,11 +701,14 @@ async function loadAllDataFromFirebase() {
                     const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
                     const debtSnapshot = await getDocs(debtsCollectionRef);
                     
-                    // Borçları toplu silmek için batch kullanmak daha verimli olurdu,
-                    // ancak basitlik adına tek tek siliyoruz.
-                    for (const docToDelete of debtSnapshot.docs) {
-                        await deleteDoc(doc(debtsCollectionRef, docToDelete.id));
-                    }
+                    // Toplu silme (batch) daha verimli olur, ama basitlik adına tek tek siliyoruz
+                    // Eğer çok fazla borç kaydınız varsa, bu kısım zaman alabilir.
+                    const batch = db.batch();
+                    debtSnapshot.forEach(docToDelete => {
+                        batch.delete(doc(debtsCollectionRef, docToDelete.id));
+                    });
+                    await batch.commit(); // Tüm silme işlemlerini tek seferde gönder
+                    
                     allApartmentDebts[daire] = []; // Bellekteki global veriyi de sıfırla
                 }
                 loadAdminTable(); // Tabloyu güncelleyin
@@ -709,8 +721,8 @@ async function loadAllDataFromFirebase() {
     }
 
     async function downloadAllDebtsCsv() {
-        // CSV indirmeden önce verilerin güncel olduğundan emin olmak için tekrar yükleyelim
-        await loadAllDataFromFirebase(); 
+        // En güncel veriyi almak için tekrar yüklüyoruz
+        await loadAllApartmentDebtsForBackup(); 
 
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
         csvContent += "Daire,Ay,Tip,Tutar (TL),Durum\n";
@@ -742,14 +754,137 @@ async function loadAllDataFromFirebase() {
         showMessage("adminTableMessage", "Tüm borçlar Excel dosyası olarak indirildi.");
     }
 
-    // --- Uygulama Başlangıcı ---
-    // Sayfa yüklendiğinde tüm verileri Firebase'den çek
-    loadAllDataFromFirebase().then(() => {
-    }).catch(error => {
-        console.error("Uygulama başlatılırken hata:", error);
-        showMessage("loginMessage", "Sistem başlatılırken bir sorun oluştu. Lütfen konsolu kontrol edin.", true);
-    });
+    // --- Yedekleme ve Geri Yükleme Fonksiyonları ---
 
+    // Verileri yedekle
+    async function backupData() {
+        showMessage("backupRestoreMessage", "Yedekleme başlatılıyor...", false);
+        try {
+            // Tüm veriyi tekrar çekelim ki en güncel hali yedeklensin
+            await loadAuthDataFromFirebase(); // Admin ve şifreler
+            await loadAllApartmentDebtsForBackup(); // Borçlar
+
+            const backupData = {
+                adminCredentials: adminCredentials,
+                aidatTutari: aidatTutari,
+                passwords: passwords,
+                allApartmentDebts: allApartmentDebts
+            };
+
+            const jsonString = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            
+            // Tarih ve saat ile dosya adı oluşturma
+            const now = new Date();
+            const filename = `aidat_yedek_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}.json`;
+
+            // Firebase Storage'a yedek dosyayı yükle
+            const storageRef = ref(storage, `backups/${filename}`);
+            await uploadBytes(storageRef, blob);
+
+            showMessage("backupRestoreMessage", `Yedek başarıyla alındı: ${filename}`, false);
+        } catch (error) {
+            console.error("Yedekleme hatası:", error);
+            showMessage("backupRestoreMessage", `Yedekleme sırasında hata oluştu: ${error.message}`, true);
+        }
+    }
+
+    // Yedekten geri yükle
+    async function restoreData(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+
+        showMessage("backupRestoreMessage", "Yedek yükleniyor...", false);
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const backupData = JSON.parse(e.target.result);
+
+                if (!confirm("Yedeklemeden geri yüklemek mevcut tüm verilerin üzerine yazacaktır. Emin misiniz?")) {
+                    showMessage("backupRestoreMessage", "Geri yükleme iptal edildi.", false);
+                    return;
+                }
+
+                // Admin verilerini yükle
+                const adminDocRef = doc(db, 'admin', 'credentials');
+                await setDoc(adminDocRef, backupData.adminCredentials);
+
+                // Ayar verilerini yükle
+                const settingsDocRef = doc(db, 'settings', 'aidat');
+                await setDoc(settingsDocRef, { amount: backupData.aidatTutari });
+
+                // Daire şifrelerini ve borçlarını yükle
+                for (const daire of daireler) {
+                    const flatDocRef = doc(db, 'apartments', daire);
+                    // Daire belgesini ve şifresini güncelle
+                    await setDoc(flatDocRef, { password: backupData.passwords[daire] || "1234" }, { merge: true });
+
+                    // Borçları temizle ve yeniden ekle
+                    const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+                    const currentDebtsSnapshot = await getDocs(debtsCollectionRef);
+                    const batchDelete = db.batch();
+                    currentDebtsSnapshot.forEach(docToDelete => {
+                        batchDelete.delete(doc(debtsCollectionRef, docToDelete.id));
+                    });
+                    await batchDelete.commit();
+
+                    const batchAdd = db.batch();
+                    if (backupData.allApartmentDebts[daire]) {
+                        backupData.allApartmentDebts[daire].forEach(debt => {
+                            // Firestore'a belge eklerken ID'yi kendimiz belirleyemeyiz (addDoc ile)
+                            // veya otomatik ID ile eklemeliyiz. Eğer yedekdeki ID'leri korumak istersek
+                            // setDoc(doc(collectionRef, debt.id), debt) kullanmalıyız.
+                            // Ancak manuel ID'ler çakışmaya neden olabilir, bu yüzden yeni otomatik ID kullanmak daha güvenlidir.
+                            const newDocRef = doc(debtsCollectionRef); // Yeni otomatik ID oluştur
+                            batchAdd.set(newDocRef, { 
+                                ay: debt.ay,
+                                tip: debt.tip,
+                                tutar: debt.tutar,
+                                odendi: debt.odendi
+                            });
+                        });
+                    }
+                    await batchAdd.commit();
+                }
+                
+                showMessage("backupRestoreMessage", "Veriler başarıyla yedekten yüklendi! Lütfen sayfayı yenileyin.", false);
+                setTimeout(() => { location.reload(); }, 2000); // Sayfayı yenile
+            } catch (error) {
+                console.error("Geri yükleme hatası:", error);
+                showMessage("backupRestoreMessage", `Geri yükleme sırasında hata oluştu: ${error.message}`, true);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+
+    // --- HTML'den doğrudan çağrılması gereken fonksiyonları global yapıyoruz ---
+    window.login = login;
+    window.logout = logout;
+    window.loadUserTable = loadUserTable; 
+    window.fillFlatSelects = fillFlatSelects; 
+    window.loadAdminTable = loadAdminTable; 
+    window.markPaid = markPaid;
+    window.ekleBorc = ekleBorc;
+    window.silBorc = silBorc;
+    window.editDebt = editDebt;
+    window.updateAidatTutari = updateAidatTutari;
+    window.addAdvanceToAll = addAdvanceToAll;
+    window.sifreAyarla = sifreAyarla;
+    window.setAdminPassword = setAdminPassword;
+    window.deleteAllDebts = deleteAllDebts;
+    window.downloadAllDebtsCsv = downloadAllDebtsCsv;
+    window.backupData = backupData; // Yeni yedekleme fonksiyonu
+    window.restoreData = restoreData; // Yeni geri yükleme fonksiyonu
+    window.showMessage = showMessage; 
+
+
+    // --- Uygulama Başlangıcı ---
+    // Sayfa yüklendiğinde SADECE kimlik doğrulama verilerini yükle
+    loadAuthDataFromFirebase();
   </script>
 </body>
 </html>
