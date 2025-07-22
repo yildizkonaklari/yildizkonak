@@ -743,8 +743,7 @@
     }
 
     // --- Yedekleme ve Geri Yükleme Fonksiyonları ---
-
-    async function backupData() {
+async function backupData() {
         showMessage("backupRestoreMessage", "Yedekleme başlatılıyor...", false);
         try {
             // Tüm veriyi çekelim ki en güncel hali yedeklensin
@@ -777,11 +776,10 @@
             showMessage("backupRestoreMessage", `Yedek başarıyla bilgisayarınıza indirildi: ${filename}`, false);
 
         } catch (error) {
-            console.error("Yedekleme hatası:", error);
-            showMessage("backupRestoreMessage", `Yedekleme sırasında hata oluştu: ${error.message}`, true);
+            console.error("Yedekleme hatası:", error); // Konsola detayı yazdır
+            showMessage("backupRestoreMessage", `Yedekleme sırasında bir hata oluştu: ${error.message}. Detaylar için konsola bakın.`, true);
         }
     }
-
     async function restoreData(event) {
         const file = event.target.files[0];
         if (!file) {
