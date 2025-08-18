@@ -4,32 +4,170 @@
   <meta charset="UTF-8">
   <title>Ayvalık Yıldız Konakları - Aidat Takip</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f4f8; color: #333; }
-    .container { max-width: 900px; margin: auto; background: #fff8f0; padding: 20px; margin-top: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1, h2, h3, h4 { text-align: center; color: #014f86; }
-    input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
-    button { background-color: #468faf; color: white; border: none; cursor: pointer; }
-    button:hover { background-color: #014f86; }
-    button:disabled { background-color: #ccc; cursor: not-allowed; } /* Devre dışı buton stili */
-    .hidden { display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
-    th { background-color: #dbe9f4; }
-    .totals { margin-top: 20px; font-weight: bold; color: #014f86; }
-    .delete-btn { background-color: #dc3545; }
-    .delete-btn:hover { background-color: #c82333; }
-    .edit-btn { background-color: #ffc107; color: #333; }
-    .edit-btn:hover { background-color: #e0a800; }
-    .download-btn, .backup-btn { background-color: #28a745; }
-    .download-btn:hover, .backup-btn:hover { background-color: #218838; }
-    .upload-btn { background-color: #17a2b8; }
-    .upload-btn:hover { background-color: #138496; }
-    .message { text-align: center; color: green; margin-top: 10px; }
-    .error-message { text-align: center; color: red; margin-top: 10px; }
-    .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; font-size: 0.9em; color: #555; }
-    .section-divider { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc; }
-    .unpaid-debt { color: #dc3545; font-weight: bold; }
+    :root {
+      --primary-color: #014f86;
+      --secondary-color: #468faf;
+      --background-color: #f0f4f8;
+      --container-bg: #fff8f0;
+      --text-color: #333;
+      --border-color: #ccc;
+      --hover-color: #014f86;
+      --danger-color: #dc3545;
+      --danger-hover: #c82333;
+      --success-color: #28a745;
+      --success-hover: #218838;
+      --info-color: #17a2b8;
+      --info-hover: #138496;
+      --warning-color: #ffc107;
+      --warning-hover: #e0a800;
+      --publish-bg: #e67e22;
+      --publish-hover: #d35400;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--background-color);
+      color: var(--text-color);
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: var(--container-bg);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1, h2, h3, h4 {
+      text-align: center;
+      color: var(--primary-color);
+      margin-bottom: 20px;
+    }
+    input, select, button {
+      padding: 12px;
+      margin: 8px 0;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      font-size: 16px;
+    }
+    button {
+      background-color: var(--secondary-color);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover:not(:disabled) {
+      background-color: var(--hover-color);
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .hidden { display: none !important; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px;
+      text-align: center;
+    }
+    th {
+      background-color: #dbe9f4;
+      font-weight: bold;
+    }
+    .totals {
+      margin-top: 20px;
+      font-weight: bold;
+      color: var(--primary-color);
+      text-align: center;
+    }
+    .delete-btn { background-color: var(--danger-color); }
+    .delete-btn:hover:not(:disabled) { background-color: var(--danger-hover); }
+    .edit-btn { background-color: var(--warning-color); color: var(--text-color); }
+    .edit-btn:hover:not(:disabled) { background-color: var(--warning-hover); }
+    .download-btn, .backup-btn { background-color: var(--success-color); }
+    .download-btn:hover:not(:disabled), .backup-btn:hover:not(:disabled) { background-color: var(--success-hover); }
+    .upload-btn { background-color: var(--info-color); }
+    .upload-btn:hover:not(:disabled) { background-color: var(--info-hover); }
+    .message { text-align: center; color: var(--success-color); margin-top: 10px; font-weight: bold; }
+    .error-message { text-align: center; color: var(--danger-color); margin-top: 10px; font-weight: bold; }
+    .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed var(--border-color); font-size: 0.9em; color: #555; }
+    .section-divider { margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    .unpaid-debt { color: var(--danger-color); font-weight: bold; }
+    .collapsible-header {
+      background-color: #dbe9f4;
+      color: var(--primary-color);
+      cursor: pointer;
+      padding: 18px;
+      width: 100%;
+      border: none;
+      text-align: left;
+      outline: none;
+      font-size: 18px;
+      border-radius: 6px;
+      margin-top: 15px;
+      transition: background-color 0.3s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .collapsible-header:hover { background-color: #c0d8eb; }
+    .collapsible-content {
+      padding: 0 18px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.2s ease-out;
+      background-color: #f7f9fc;
+      border-radius: 6px;
+    }
+    .collapsible-content.active {
+      max-height: 1000px; /* Büyük değer, içeriğe göre ayarlanabilir */
+      padding: 18px;
+    }
+    .collapsible-header:after {
+      content: '+';
+      font-weight: bold;
+      font-size: 24px;
+      margin-left: 5px;
+    }
+    .collapsible-header.active:after { content: '-'; }
+    .user-profile-display {
+      background: #e9f2fa;
+      border: 1px solid #c0d8eb;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    .user-profile-display p {
+      margin: 5px 0;
+    }
+    .user-profile-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .publish-btn {
+      background-color: var(--publish-bg);
+      color: white;
+    }
+    .publish-btn:hover {
+      background-color: var(--publish-hover);
+    }
   </style>
 </head>
 <body>
@@ -40,82 +178,177 @@
     <div id="login">
       <h3>Giriş Yap</h3>
       <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
-      <input type="password" id="password" placeholder="Şifre (örn: 1234)">
+      <input type="password" id="password" placeholder="Şifre (örn: 1256)">
       <button id="loginButton" onclick="login()" disabled>Giriş</button>
       <div id="loginMessage" class="message hidden"></div>
     </div>
 
     <div id="userPanel" class="hidden">
       <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
-      <h4>Borçlarınız</h4>
-      <table id="userTable">
-        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
-      </table>
-      <div class="totals" id="userDebtTotals"></div>
-      <div class="bank-info">
-        <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
-        <p><strong>IBAN:</strong> TR510001000110981102095001</p>
+      
+      <!-- Kullanıcı Menüsü -->
+      <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+        <button id="showDebtBtn" style="flex-grow: 1;">Bakiye</button>
+        <button id="showProfileBtn" style="flex-grow: 1;">Profilim</button>
+        <button id="showExpensesBtn" style="flex-grow: 1;" class="hidden">Giderler</button>
       </div>
+
+      <!-- Profil bilgilerini tamamlaması için uyarı mesajı -->
+      <div id="profileIncompleteMessage" class="error-message hidden"></div>
+
+      <!-- Borç Sayfası -->
+      <div id="debtPage">
+        <h4>Bakiyeniz</h4>
+        <div class="table-responsive">
+          <table id="userTable">
+            <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
+          </table>
+        </div>
+        <div class="totals" id="userDebtTotals"></div>
+        <div class="bank-info">
+          <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
+          <p><strong>IBAN:</strong> TR510001000110981102095001</p>
+        </div>
+      </div>
+
+      <!-- Profil Sayfası -->
+      <div id="profilePage" class="hidden">
+        <h4>Profil Bilgilerim</h4>
+        <input type="text" id="nameInput" placeholder="Adınız">
+        <input type="text" id="surnameInput" placeholder="Soyadınız">
+        <input type="text" id="phoneInput" placeholder="Telefon Numaranız">
+        <button onclick="saveUserProfile()">Bilgileri Kaydet</button>
+        <button onclick="changeUserPassword()">Şifremi Değiştir</button>
+        <div id="profileMessage" class="message hidden"></div>
+      </div>
+      
+      <!-- Giderler Sayfası -->
+      <div id="expensesPage" class="hidden">
+        <h4>Site Giderleri</h4>
+        <div id="expenseNotPublishedMessage" class="message hidden"></div>
+        <div id="expenseTableContainer">
+          <div class="table-responsive">
+            <table id="userExpenseTable">
+              <tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th></tr>
+            </table>
+          </div>
+          <div class="totals" id="userExpenseTotals"></div>
+        </div>
+      </div>
+
+      <div class="section-divider"></div>
       <button onclick="logout()">Çıkış Yap</button>
+      <div id="userPasswordMessage" class="message hidden"></div>
     </div>
 
     <div id="adminPanel" class="hidden">
       <h3>Yönetici Paneli</h3>
-      <input type="number" id="aidatTutariInput" placeholder="Yeni Aidat Tutarı (₺)">
-      <button onclick="updateAidatTutari()">Aidat Tutarını Güncelle ve Tüm Dairelere Ekle</button>
-      <div id="aidatMessage" class="message hidden"></div>
 
       <div class="section-divider"></div>
-      <h4>Tüm Dairelere Avans Ekle</h4>
-      <input type="number" id="avansTutariInput" placeholder="Avans Tutarı (₺)">
-      <button onclick="addAdvanceToAll()">Tüm Dairelere Avans Ekle</button>
-      <div id="avansMessage" class="message hidden"></div>
-
-
-      <div class="section-divider"></div>
-      <h4>Yeni Borç Ekle</h4>
-      <select id="borcTipi">
-        <option value="aidat">Aidat</option>
-        <option value="avans">Avans</option>
-      </select>
-      <input type="text" id="borcAy" placeholder="Ay (örn: Temmuz 2025)">
-      <input type="number" id="borcTutar" placeholder="Tutar (₺)">
-      <select id="borcKime"></select>
-      <button onclick="ekleBorc()">Borç Ekle</button>
-      <div id="addDebtMessage" class="message hidden"></div>
-
+      <button class="collapsible-header" onclick="toggleSection('aidatSection')">
+        Aidat Tutarını Güncelle
+      </button>
+      <div id="aidatSection" class="collapsible-content">
+        <input type="number" id="aidatTutariInput" placeholder="Yeni Aidat Tutarı (₺)">
+        <button onclick="updateAidatTutari()">Aidat Tutarını Güncelle ve Tüm Dairelere Ekle</button>
+        <div id="aidatMessage" class="message hidden"></div>
+      </div>
 
       <div class="section-divider"></div>
-      <h4>Daire ve Yönetici Şifre Ayarla</h4>
-      <h5>Daire Şifresi Ayarla</h5>
-      <select id="sifreDaire"></select>
-      <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
-      <button onclick="sifreAyarla()">Daire Şifresini Kaydet</button>
-      <div id="passwordMessage" class="message hidden"></div>
-
-      <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
-      <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
-      <button onclick="setAdminPassword()">Yönetici Şifresini Kaydet</button>
-      <div id="adminPasswordMessage" class="message hidden"></div>
-
+      <button class="collapsible-header" onclick="toggleSection('newDebtSection')">
+        Yeni Borç Ekle
+      </button>
+      <div id="newDebtSection" class="collapsible-content">
+        <select id="borcTipi">
+          <option value="aidat">Aidat</option>
+          <option value="avans">Avans</option>
+        </select>
+        <input type="text" id="borcAy" placeholder="Ay (örn: Temmuz 2025)">
+        <input type="number" id="borcTutar" placeholder="Tutar (₺)">
+        <select id="borcKime"></select>
+        <button onclick="ekleBorc()">Borç Ekle</button>
+        <div id="addDebtMessage" class="message hidden"></div>
+      </div>
 
       <div class="section-divider"></div>
-      <h4>Daire Borç Listesi</h4>
-      <select id="flatSelect" onchange="loadAdminTable()"></select>
-      <table id="adminTable">
-        <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
-      </table>
-      <div class="totals" id="borcToplam"></div>
-      <div id="adminTableMessage" class="message hidden"></div>
-      <button class="download-btn" onclick="downloadAllDebtsCsv()">Tüm Borçları Excel Olarak İndir</button>
+      <button class="collapsible-header" onclick="toggleSection('passwordSection')">
+        Daire ve Yönetici Şifre Ayarla
+      </button>
+      <div id="passwordSection" class="collapsible-content">
+        <h5>Daire Şifresi Ayarla</h5>
+        <select id="sifreDaire"></select>
+        <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
+        <button onclick="sifreAyarla()">Daire Şifresini Kaydet</button>
+        <button class="warning-btn" onclick="resetAllPasswords()">Tüm Daire Şifrelerini '1256' Yap</button>
+        <div id="passwordMessage" class="message hidden"></div>
+
+        <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
+        <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
+        <button onclick="setAdminPassword()">Yönetici Şifresini Kaydet</button>
+        <div id="adminPasswordMessage" class="message hidden"></div>
+      </div>
+
+      <div class="section-divider"></div>
+      <button class="collapsible-header" onclick="toggleSection('debtListSection')">
+        Daire Borç Listesi
+      </button>
+      <div id="debtListSection" class="collapsible-content">
+        <select id="flatSelect" onchange="loadAdminTable()"></select>
+        <!-- Daire Sahibi Bilgileri Buraya Gelecek -->
+        <div id="userInfoDisplay" class="user-profile-display hidden"></div>
+
+        <button class="download-btn" onclick="downloadAllProfilesPdf()" style="margin-top: 20px;">Tüm Profil Bilgilerini İndir</button>
+        <button class="download-btn" onclick="downloadAllDebtsPdf()">Tüm Borçları PDF Olarak İndir</button>
+        
+        <div class="table-responsive">
+          <table id="adminTable">
+            <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+          </table>
+        </div>
+        
+        <div class="totals" id="borcToplam"></div>
+        <div id="adminTableMessage" class="message hidden"></div>
+      </div>
+
+      <!-- Giderler Bölümü -->
+      <div class="section-divider"></div>
+      <button class="collapsible-header" onclick="toggleSection('expenseSection')">
+        Giderler
+      </button>
+      <div id="expenseSection" class="collapsible-content">
+        <h4>Yeni Gider Ekle</h4>
+        <input type="date" id="expenseDateInput">
+        <input type="text" id="expenseNameInput" placeholder="Harcama Adı">
+        <input type="number" id="expenseAmountInput" placeholder="Tutar (₺)">
+        <button onclick="saveExpense()">Kaydet</button>
+        <div id="expenseMessage" class="message hidden"></div>
+        
+        <h4>Gider Listesi</h4>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <select id="expenseMonthFilter" style="width: 50%;"></select>
+          <select id="expenseYearFilter" style="width: 50%;"></select>
+        </div>
+        <button onclick="loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value)">Filtrele</button>
+        <button id="publishButton" onclick="toggleExpensesVisibility()" class="publish-btn">Yayınlanıyor...</button>
+        <div class="table-responsive">
+          <table id="adminExpenseTable">
+            <tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th><th>İşlem</th></tr>
+          </table>
+        </div>
+        <div class="totals" id="adminExpenseTotals"></div>
+      </div>
+
+      <div class="section-divider"></div>
+      <button class="collapsible-header" onclick="toggleSection('backupSection')">
+        Yedekleme ve Geri Yükleme
+      </button>
+      <div id="backupSection" class="collapsible-content">
+        <button class="backup-btn" onclick="backupData()">Verileri Yedekle (Bilgisayara İndir)</button>
+        <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="restoreData(event)">
+        <button class="upload-btn" onclick="document.getElementById('backupFileInput').click()">Yedekten Yükle (Dosya Seç)</button>
+        <div id="backupRestoreMessage" class="message hidden"></div>
+      </div>
       
-      <div class="section-divider"></div>
-      <h4>Yedekleme ve Geri Yükleme</h4>
-      <button class="backup-btn" onclick="backupData()">Verileri Yedekle (Bilgisayara İndir)</button>
-      <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="restoreData(event)">
-      <button class="upload-btn" onclick="document.getElementById('backupFileInput').click()">Yedekten Yükle (Dosya Seç)</button>
-      <div id="backupRestoreMessage" class="message hidden"></div>
-
       <div class="section-divider"></div>
       <button class="delete-btn" onclick="deleteAllDebts()">Tüm Dairelerin Tüm Borçlarını Sil</button>
       <button onclick="logout()">Çıkış Yap</button>
@@ -124,8 +357,7 @@
 
   <script type="module">
     // --- Firebase SDK Importları ve Başlangıç ---
-    // !!! BURADAKİ SÜRÜMÜ KENDİ FIREBASE KONSOLUNUZDAKİ GÜNCEL SÜRÜMLE DEĞİŞTİRİNİZ !!!
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js"; 
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"; 
     import { 
       getFirestore, 
       collection, 
@@ -138,25 +370,23 @@
       getDoc, 
       query, 
       where,
-      writeBatch 
-    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"; 
-    // import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js"; // STORAGE KALDIRILDI
+      writeBatch,
+      deleteField 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; 
 
-    // !!! BURADAKİ firebaseConfig OBJESİNİ KENDİ FIREBASE KONSOLUNUZDAN ALDIĞINIZ BİLGİLERLE DEĞİŞTİRİNİZ !!!
- const firebaseConfig = {
-    apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
-    authDomain: "yildizkonaklariaidat.firebaseapp.com",
-    projectId: "yildizkonaklariaidat",
-    storageBucket: "yildizkonaklariaidat.firebasestorage.app",
-    messagingSenderId: "51493869354",
-    appId: "1:51493869354:web:556e64fc918fcc813c3053",
-    measurementId: "G-4110SM95RV"
-  };
+    // Kullanıcıdan alınan Firebase yapılandırma bilgileri
+    const firebaseConfig = {
+      apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
+      authDomain: "yildizkonaklariaidat.firebaseapp.com",
+      projectId: "yildizkonaklariaidat",
+      storageBucket: "yildizkonaklariaidat.firebasestorage.app",
+      messagingSenderId: "51493869354",
+      appId: "1:51493869354:web:556e64fc918fcc813c3053",
+      measurementId: "G-4110SM95RV"
+    };
 
-    // Firebase'i başlat
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    // const storage = getStorage(app); // STORAGE KALDIRILDI
 
     // Global olarak erişilebilir yapmak için
     window.db = db;
@@ -171,20 +401,18 @@
     window.query = query;
     window.where = where;
     window.writeBatch = writeBatch;
-
-    // STORAGE ile ilgili window atamaları kaldırıldı
-    // window.ref = ref;
-    // window.uploadBytes = uploadBytes;
-    // window.getDownloadURL = getDownloadURL;
-    // window.deleteObject = deleteObject;
+    window.deleteField = deleteField;
 
     // Uygulama genelinde kullanılacak değişkenler (başlangıç değerleri)
     const defaultAidat = 2000;
+    const defaultPassword = "1256";
     let aidatTutari = defaultAidat; 
-    
     let adminCredentials = { username: "admin", password: "admin123" }; 
     let passwords = {}; 
     let allApartmentDebts = {}; 
+    let loggedInUsername = null;
+    let publishedExpenseData = { published: false, month: null, year: null };
+    const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
     const daireler = [];
     ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
@@ -206,6 +434,50 @@
         setTimeout(() => {
             element.classList.add('hidden');
         }, 3000);
+    }
+    
+    function toggleSection(sectionId) {
+      const header = document.querySelector(`[onclick="toggleSection('${sectionId}')"]`);
+      const content = document.getElementById(sectionId);
+      if (content.classList.contains('active')) {
+        content.classList.remove('active');
+        content.style.maxHeight = null;
+        header.classList.remove('active');
+      } else {
+        content.classList.add('active');
+        content.style.maxHeight = content.scrollHeight + "px";
+        header.classList.add('active');
+      }
+    }
+    window.toggleSection = toggleSection;
+
+    // Yeni eklenen fonksiyonlar için sayfa değiştirme mantığı
+    function showPage(pageId) {
+        document.getElementById('debtPage').classList.add('hidden');
+        document.getElementById('profilePage').classList.add('hidden');
+        document.getElementById('expensesPage').classList.add('hidden');
+        document.getElementById(pageId).classList.remove('hidden');
+    }
+    window.showPage = showPage;
+
+    // Giderler için ay ve yıl filtrelerini doldurur
+    function fillExpenseFilters() {
+      const monthSelect = document.getElementById('expenseMonthFilter');
+      const yearSelect = document.getElementById('expenseYearFilter');
+      
+      monthSelect.innerHTML = aylar.map(ay => `<option value="${ay}">${ay}</option>`).join('');
+      
+      const currentYear = new Date().getFullYear();
+      let years = [];
+      for(let i = currentYear - 2; i <= currentYear + 1; i++) {
+        years.push(`<option value="${i}">${i}</option>`);
+      }
+      yearSelect.innerHTML = years.join('');
+      
+      // Varsayılan olarak mevcut ayı ve yılı seç
+      const currentMonthIndex = new Date().getMonth();
+      monthSelect.value = aylar[currentMonthIndex];
+      yearSelect.value = currentYear;
     }
 
     // --- Firebase Veri Yükleme ve Başlangıç Ayarları ---
@@ -230,18 +502,27 @@
                 await setDoc(settingsDocRef, { amount: defaultAidat }); 
             }
 
+            const publishedExpensesRef = doc(db, 'settings', 'publishedExpenses');
+            const publishedExpensesSnap = await getDoc(publishedExpensesRef);
+            if (publishedExpensesSnap.exists()) {
+                publishedExpenseData = publishedExpensesSnap.data();
+            } else {
+                await setDoc(publishedExpensesRef, { published: false, month: null, year: null });
+            }
+
+            // Daire şifrelerini güncelle ve yükle
+            const batch = writeBatch(db);
             for (const daire of daireler) {
                 const flatDocRef = doc(db, 'apartments', daire);
                 const flatDocSnap = await getDoc(flatDocRef);
 
-                if (!flatDocSnap.exists()) {
-                    await setDoc(flatDocRef, { password: "1234" }); 
-                    passwords[daire] = "1234"; 
-                } else {
-                    passwords[daire] = flatDocSnap.data().password || "1234"; 
+                if (!flatDocSnap.exists() || !flatDocSnap.data().password) {
+                    batch.set(flatDocRef, { password: defaultPassword }, { merge: true });
                 }
+                passwords[daire] = (flatDocSnap.exists() && flatDocSnap.data().password) ? flatDocSnap.data().password : defaultPassword;
             }
-            
+            await batch.commit();
+
             console.log("Kimlik doğrulama verileri Firebase'den başarıyla yüklendi.");
             loginButton.disabled = false; 
             showMessage("loginMessage", "Sistem hazır. Giriş yapabilirsiniz.", false);
@@ -262,8 +543,10 @@
         document.getElementById("login").classList.add("hidden");
         document.getElementById("adminPanel").classList.remove("hidden");
         fillFlatSelects();
+        fillExpenseFilters();
+        loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
         await loadAllApartmentDebtsForBackup(); 
-        loadAdminTable(); 
+        loadAdminTable();
         loginMessage.classList.add("hidden");
         return;
       }
@@ -285,6 +568,23 @@
       document.getElementById("login").classList.add("hidden");
       document.getElementById("userPanel").classList.remove("hidden");
       document.getElementById("userNameDisplay").textContent = username;
+      loggedInUsername = username;
+      
+      // Kullanıcı paneli ilk açıldığında borç sayfasını göster
+      showPage('debtPage');
+      document.getElementById('showDebtBtn').onclick = () => {
+          showPage('debtPage');
+          document.getElementById('userTable').innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>';
+          loadUserTable(loggedInUsername);
+      };
+      document.getElementById('showProfileBtn').onclick = () => {
+        showPage('profilePage');
+        loadUserProfile();
+      };
+
+      // Giderler butonu için profil kontrolü yap
+      await checkProfileAndToggleExpensesButton();
+      
       loadUserTable(username); 
       loginMessage.classList.add("hidden");
     }
@@ -292,7 +592,109 @@
     function logout() {
       document.getElementById("username").value = "";
       document.getElementById("password").value = "";
+      loggedInUsername = null;
       location.reload(); 
+    }
+    
+    async function changeUserPassword() {
+      const newPassword = prompt("Yeni şifrenizi girin:");
+      if (!newPassword || newPassword.length < 3) {
+          showMessage("userPasswordMessage", "Şifre en az 3 karakter olmalıdır.", true);
+          return;
+      }
+      try {
+          const flatDocRef = doc(db, 'apartments', loggedInUsername);
+          await updateDoc(flatDocRef, { password: newPassword });
+          passwords[loggedInUsername] = newPassword;
+          showMessage("userPasswordMessage", "Şifreniz başarıyla güncellendi.");
+      } catch (error) {
+          console.error("Şifre güncellenirken hata:", error);
+          showMessage("userPasswordMessage", "Şifre güncellenirken bir sorun oluştu.", true);
+      }
+    }
+
+    // --- Yeni Eklenen Fonksiyonlar ---
+    // Kullanıcının profilinin tamamlanıp tamamlanmadığını kontrol eder
+    async function isProfileComplete() {
+        if (!loggedInUsername) return false;
+        try {
+            const userDocRef = doc(db, 'apartments', loggedInUsername);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                return !!userData.adi && !!userData.soyadi && !!userData.telefon;
+            }
+        } catch (error) {
+            console.error("Profil bilgileri kontrol edilirken hata:", error);
+        }
+        return false;
+    }
+    
+    // Profil durumuna göre giderler butonunu ayarlar
+    async function checkProfileAndToggleExpensesButton() {
+        const expensesBtn = document.getElementById('showExpensesBtn');
+        const warningMsg = document.getElementById('profileIncompleteMessage');
+        const isComplete = await isProfileComplete();
+
+        if (isComplete) {
+            expensesBtn.classList.remove('hidden');
+            warningMsg.classList.add('hidden');
+            // Butonun işlevini ayarla
+            expensesBtn.onclick = () => {
+                showPage('expensesPage');
+                loadUserExpensesTable();
+            };
+        } else {
+            expensesBtn.classList.add('hidden');
+            warningMsg.textContent = "Lütfen giderleri görebilmek için profil bilgilerinizi (Ad, Soyad, Telefon) tamamlayın.";
+            warningMsg.classList.remove('hidden');
+        }
+    }
+    window.checkProfileAndToggleExpensesButton = checkProfileAndToggleExpensesButton;
+
+    async function loadUserProfile() {
+        if (!loggedInUsername) return;
+        try {
+            const userDocRef = doc(db, 'apartments', loggedInUsername);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                document.getElementById('nameInput').value = userData.adi || '';
+                document.getElementById('surnameInput').value = userData.soyadi || '';
+                document.getElementById('phoneInput').value = userData.telefon || '';
+            }
+        } catch (error) {
+            console.error("Profil bilgileri yüklenirken hata:", error);
+            showMessage("profileMessage", "Profil bilgileri yüklenirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function saveUserProfile() {
+        if (!loggedInUsername) return;
+        
+        const adi = document.getElementById('nameInput').value.trim();
+        const soyadi = document.getElementById('surnameInput').value.trim();
+        const telefon = document.getElementById('phoneInput').value.trim();
+
+        if (adi === '' || soyadi === '' || telefon === '') {
+            showMessage("profileMessage", "Lütfen tüm alanları doldurunuz.", true);
+            return;
+        }
+
+        try {
+            const userDocRef = doc(db, 'apartments', loggedInUsername);
+            await updateDoc(userDocRef, {
+                adi: adi,
+                soyadi: soyadi,
+                telefon: telefon
+            });
+            showMessage("profileMessage", "Profil bilgileriniz başarıyla kaydedildi.", false);
+            // Profil güncellendikten sonra Giderler butonunu kontrol et
+            await checkProfileAndToggleExpensesButton();
+        } catch (error) {
+            console.error("Profil bilgileri kaydedilirken hata:", error);
+            showMessage("profileMessage", "Bilgiler kaydedilirken bir sorun oluştu.", true);
+        }
     }
 
     // --- Kullanıcı Paneli Fonksiyonları ---
@@ -331,28 +733,117 @@
       }
     }
 
+    async function loadUserExpensesTable() {
+        const tableContainer = document.getElementById("expenseTableContainer");
+        const notPublishedMsg = document.getElementById("expenseNotPublishedMessage");
+        
+        try {
+            const publishedExpensesRef = doc(db, 'settings', 'publishedExpenses');
+            const publishedExpensesSnap = await getDoc(publishedExpensesRef);
+            publishedExpenseData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false, month: null, year: null };
+
+            if (!publishedExpenseData.published) {
+                tableContainer.classList.add('hidden');
+                notPublishedMsg.textContent = "Giderler ay sonunda burada gösterilecektir.";
+                notPublishedMsg.classList.remove('hidden');
+                return;
+            } else {
+                tableContainer.classList.remove('hidden');
+                notPublishedMsg.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error("Gider görünürlüğü kontrol edilirken hata:", error);
+            tableContainer.classList.add('hidden');
+            notPublishedMsg.textContent = "Giderler yüklenirken bir sorun oluştu.";
+            notPublishedMsg.classList.remove('hidden');
+            return;
+        }
+
+        const table = document.getElementById("userExpenseTable");
+        table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th></tr>';
+        const expenseTotals = document.getElementById("userExpenseTotals");
+        let totalExpense = 0;
+
+        try {
+            const expensesCollectionRef = collection(db, 'expenses');
+            const q = query(expensesCollectionRef, 
+              where("tarih_ay", "==", publishedExpenseData.month),
+              where("tarih_yil", "==", Number(publishedExpenseData.year))
+            );
+            const expensesSnapshot = await getDocs(q);
+
+            if (expensesSnapshot.empty) {
+                table.innerHTML += '<tr><td colspan="3">Henüz gider kaydı bulunmamaktadır.</td></tr>';
+                expenseTotals.textContent = `Toplam Gider: 0 TL`;
+                return;
+            }
+
+            expensesSnapshot.forEach(doc => {
+                const expense = doc.data();
+                table.innerHTML += `<tr>
+                    <td>${expense.tarih}</td>
+                    <td>${expense.harcamaAdi}</td>
+                    <td>${expense.tutar} TL</td>
+                </tr>`;
+                totalExpense += Number(expense.tutar);
+            });
+            
+            expenseTotals.textContent = `Toplam Gider: ${totalExpense} TL`;
+        } catch (error) {
+            console.error("Kullanıcı gider listesi yüklenirken hata:", error);
+            showMessage("userPasswordMessage", "Gider listesi yüklenirken bir sorun oluştu.", true);
+        }
+    }
+
     // --- Yönetici Paneli Fonksiyonları ---
     function fillFlatSelects() {
-      const selects = ["flatSelect", "borcKime", "sifreDaire"];
-      selects.forEach(id => {
-        const select = document.getElementById(id);
-        select.innerHTML = "";
-        daireler.forEach(daire => {
-          const option = document.createElement("option");
-          option.value = daire;
-          option.textContent = daire;
-          select.appendChild(option);
+        const selects = ["flatSelect", "borcKime", "sifreDaire"];
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = "";
+            // Yeni Borç Ekle menüsüne "Tüm Daireler" seçeneği eklendi
+            if (id === "borcKime") {
+                const allOption = document.createElement("option");
+                allOption.value = "all_apartments";
+                allOption.textContent = "Tüm Daireler";
+                select.appendChild(allOption);
+            }
+            daireler.forEach(daire => {
+                const option = document.createElement("option");
+                option.value = daire;
+                option.textContent = daire;
+                select.appendChild(option);
+            });
         });
-      });
     }
 
     async function loadAdminTable() {
       const daire = document.getElementById("flatSelect").value;
       const table = document.getElementById("adminTable");
+      const userInfoDisplay = document.getElementById("userInfoDisplay");
       table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>';
+      userInfoDisplay.classList.add("hidden");
+      
       let toplam = 0, odenen = 0;
 
       try {
+        // Profil bilgilerini yükle ve göster
+        const flatDocRef = doc(db, 'apartments', daire);
+        const flatDocSnap = await getDoc(flatDocRef);
+
+        const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+        userInfoDisplay.innerHTML = `
+            <p><strong>Daire:</strong> ${daire}</p>
+            <p><strong>Adı Soyadı:</strong> ${userData.adi || 'Bilgi Yok'} ${userData.soyadi || ''}</p>
+            <p><strong>Telefon:</strong> ${userData.telefon || 'Bilgi Yok'}</p>
+            <div class="user-profile-actions">
+              <button class="edit-btn" onclick="editUserProfileAsAdmin('${daire}')">Düzenle</button>
+              <button class="delete-btn" onclick="deleteUserProfileAsAdmin('${daire}')">Sil</button>
+            </div>
+        `;
+        userInfoDisplay.classList.remove("hidden");
+
+        // Borç listesini yükle
         const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
         const debtSnapshot = await getDocs(debtsCollectionRef);
 
@@ -384,6 +875,52 @@
         console.error("Yönetici borçları yüklenirken hata:", error);
         showMessage("adminTableMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
       }
+    }
+
+    async function editUserProfileAsAdmin(daire) {
+        try {
+            const flatDocRef = doc(db, 'apartments', daire);
+            const flatDocSnap = await getDoc(flatDocRef);
+            const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+
+            const newAdi = prompt(`Daire ${daire} için yeni adı girin:`, userData.adi || '');
+            if (newAdi === null) return;
+
+            const newSoyadi = prompt(`Daire ${daire} için yeni soyadı girin:`, userData.soyadi || '');
+            if (newSoyadi === null) return;
+
+            const newTelefon = prompt(`Daire ${daire} için yeni telefon numarasını girin:`, userData.telefon || '');
+            if (newTelefon === null) return;
+
+            await updateDoc(flatDocRef, {
+                adi: newAdi,
+                soyadi: newSoyadi,
+                telefon: newTelefon
+            });
+            showMessage("adminTableMessage", `Daire ${daire} profil bilgileri güncellendi.`, false);
+            loadAdminTable();
+        } catch (error) {
+            console.error("Profil bilgileri güncellenirken hata:", error);
+            showMessage("adminTableMessage", "Profil bilgileri güncellenirken bir sorun oluştu.", true);
+        }
+    }
+    
+    async function deleteUserProfileAsAdmin(daire) {
+        if (confirm(`Daire ${daire}'e ait profil bilgilerini (Ad, Soyad, Telefon) silmek istediğinizden emin misiniz?`)) {
+            try {
+                const flatDocRef = doc(db, 'apartments', daire);
+                await updateDoc(flatDocRef, {
+                    adi: deleteField(),
+                    soyadi: deleteField(),
+                    telefon: deleteField()
+                });
+                showMessage("adminTableMessage", `Daire ${daire}'e ait profil bilgileri silindi.`, false);
+                loadAdminTable();
+            } catch (error) {
+                console.error("Profil bilgileri silinirken hata:", error);
+                showMessage("adminTableMessage", "Profil bilgileri silinirken bir sorun oluştu.", true);
+            }
+        }
     }
 
     async function markPaid(daire, debtId) {
@@ -425,25 +962,40 @@
         showMessage("addDebtMessage", "Lütfen ay ve geçerli bir tutar giriniz.", true);
         return;
       }
+      
+      const apartmentsToAdd = (daire === "all_apartments") ? daireler : [daire];
+      const batch = writeBatch(db);
+      let addedCount = 0;
 
       try {
-        const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
-        const q = query(debtsCollectionRef, where("ay", "==", ay), where("tip", "==", tip), where("odendi", "==", false));
-        const querySnapshot = await getDocs(q);
+        for (const flat of apartmentsToAdd) {
+            const debtsCollectionRef = collection(db, 'apartments', flat, 'debts');
+            // Borcun zaten var olup olmadığını kontrol et
+            const q = query(debtsCollectionRef, where("ay", "==", ay), where("tip", "==", tip), where("odendi", "==", false));
+            const querySnapshot = await getDocs(q);
 
-        if (!querySnapshot.empty) {
-            showMessage("addDebtMessage", `${daire} dairesi için ${ay} ayında ${tip} borcu zaten mevcut ve ödenmemiş.`, true);
-            return;
+            if (querySnapshot.empty) {
+                // Borç mevcut değilse, toplu işlem için ekle
+                const newDebtRef = doc(debtsCollectionRef);
+                batch.set(newDebtRef, { ay, tutar, tip, odendi: false });
+                
+                // Yedekleme verisini de güncelle
+                if (!allApartmentDebts[flat]) {
+                    allApartmentDebts[flat] = [];
+                }
+                allApartmentDebts[flat].push({ ay, tutar, tip, odendi: false, id: newDebtRef.id });
+                addedCount++;
+            }
         }
-        
-        const newDebtRef = await addDoc(debtsCollectionRef, { ay, tutar, tip, odendi: false });
-        if (!allApartmentDebts[daire]) {
-            allApartmentDebts[daire] = [];
-        }
-        allApartmentDebts[daire].push({ ay, tutar, tip, odendi: false, id: newDebtRef.id });
 
-        loadAdminTable();
-        showMessage("addDebtMessage", "Yeni borç başarıyla eklendi.");
+        if (addedCount > 0) {
+            await batch.commit();
+            showMessage("addDebtMessage", `${addedCount} daireye yeni borç başarıyla eklendi.`);
+            loadAdminTable();
+        } else {
+            showMessage("addDebtMessage", `Tüm seçilen dairelerde ${ay} ayına ait ${tip} borcu zaten mevcut ve ödenmemiş.`, true);
+        }
+
         document.getElementById("borcAy").value = "";
         document.getElementById("borcTutar").value = "";
       } catch (error) {
@@ -586,47 +1138,7 @@
         showMessage("aidatMessage", "Aidat tutarı güncellenirken bir sorun oluştu.", true);
       }
     }
-
-    async function addAdvanceToAll() {
-        const avans = Number(document.getElementById("avansTutariInput").value);
-        if (isNaN(avans) || avans <= 0) {
-            showMessage("avansMessage", "Lütfen geçerli bir avans tutarı giriniz.", true);
-            return;
-        }
-
-        const currentDate = new Date();
-        const currentMonth = currentDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
-
-        try {
-            let addedCount = 0;
-            for (const daire of daireler) {
-                const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
-                const q = query(debtsCollectionRef, where("ay", "==", currentMonth), where("tip", "==", "avans"), where("odendi", "==", false));
-                const querySnapshot = await getDocs(q);
-                
-                if (querySnapshot.empty) {
-                    const newDebtRef = await addDoc(debtsCollectionRef, { ay: currentMonth, tutar: avans, tip: 'avans', odendi: false });
-                    addedCount++;
-                    if (!allApartmentDebts[daire]) {
-                        allApartmentDebts[daire] = [];
-                    }
-                    allApartmentDebts[daire].push({ ay: currentMonth, tutar: avans, tip: 'avans', odendi: false, id: newDebtRef.id });
-                }
-            }
-            
-            if (addedCount > 0) {
-                showMessage("avansMessage", `${addedCount} daireye ${currentMonth} ayı için ${avans} TL avans borcu eklendi.`, false);
-            } else {
-                showMessage("avansMessage", `Tüm dairelerde ${currentMonth} ayı için zaten avans borcu mevcut veya ödenmiş.`, false);
-            }
-            document.getElementById("avansTutariInput").value = "";
-            loadAdminTable();
-        } catch (error) {
-            console.error("Avans eklenirken hata:", error);
-            showMessage("avansMessage", "Avans eklenirken bir sorun oluştu.", true);
-        }
-    }
-
+    
     async function sifreAyarla() {
       const daire = document.getElementById("sifreDaire").value;
       const yeniSifre = document.getElementById("yeniSifre").value;
@@ -644,6 +1156,24 @@
         console.error("Daire şifresi güncellenirken hata:", error);
         showMessage("passwordMessage", "Şifre güncellenirken bir sorun oluştu.", true);
       }
+    }
+    
+    async function resetAllPasswords() {
+        if(confirm("Tüm dairelerin şifrelerini '1256' olarak sıfırlamak istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+            try {
+                const batch = writeBatch(db);
+                for (const daire of daireler) {
+                    const flatDocRef = doc(db, 'apartments', daire);
+                    batch.set(flatDocRef, { password: defaultPassword }, { merge: true });
+                    passwords[daire] = defaultPassword;
+                }
+                await batch.commit();
+                showMessage("passwordMessage", "Tüm daire şifreleri başarıyla '1256' olarak sıfırlandı.", false);
+            } catch (error) {
+                console.error("Şifreler sıfırlanırken hata:", error);
+                showMessage("passwordMessage", "Şifreler sıfırlanırken bir sorun oluştu.", true);
+            }
+        }
     }
 
     async function setAdminPassword() {
@@ -706,55 +1236,273 @@
         }
     }
 
-    async function downloadAllDebtsCsv() {
-        await loadAllApartmentDebtsForBackup(); 
+    async function downloadAllDebtsPdf() {
+        await loadAllApartmentDebtsForBackup();
+        showMessage("adminTableMessage", "PDF oluşturuluyor...", false);
 
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-        csvContent += "Daire,Ay,Tip,Tutar (TL),Durum\n";
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let yPos = 20;
 
+        doc.setFontSize(18);
+        doc.text("Ayvalık Yıldız Konakları - Borç Listesi", 105, yPos, null, null, "center");
+        yPos += 10;
+        doc.setFontSize(12);
+        doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, yPos, null, null, "center");
+        yPos += 20;
+
+        const tableData = [];
         daireler.forEach(daire => {
             if (allApartmentDebts[daire] && allApartmentDebts[daire].length > 0) {
                 allApartmentDebts[daire].forEach(entry => {
-                    const status = entry.odendi ? "Ödendi" : "Bekliyor";
-                    const ayEscaped = `"${String(entry.ay).replace(/"/g, '""')}"`;
-                    const tipEscaped = `"${String(entry.tip).replace(/"/g, '""')}"`;
-                    const statusEscaped = `"${String(status).replace(/"/g, '""')}"`;
-                    csvContent += `${daire},${ayEscaped},${tipEscaped},${entry.tutar},${statusEscaped}\n`;
+                    tableData.push([
+                        daire,
+                        entry.ay,
+                        entry.tip,
+                        `${entry.tutar} TL`,
+                        entry.odendi ? "Ödendi" : "Bekliyor"
+                    ]);
                 });
             } else {
-                csvContent += `${daire},"Borç Yok","-","-","-"\n`;
+                tableData.push([daire, "Borç Yok", "-", "-", "-"]);
             }
         });
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Daire', 'Ay', 'Tip', 'Tutar', 'Durum']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [219, 233, 244] },
+            styles: {
+                font: 'helvetica',
+                fontSize: 10,
+                cellPadding: 3
+            }
+        });
+        
+        const filename = `Ayvalik_Yildiz_Konaklari_Borc_Listesi_${new Date().toLocaleDateString('tr-TR')}.pdf`;
+        doc.save(filename);
+        showMessage("adminTableMessage", "PDF dosyası başarıyla indirildi.");
+    }
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        const today = new Date();
-        const dd = String(today.getDate()).padStart(2, '0');
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const yyyy = today.getFullYear();
-        const filenameDate = `${dd}-${mm}-${yyyy}`;
+    // --- Yeni Fonksiyon: Tüm Profil Bilgilerini İndir ---
+    async function downloadAllProfilesPdf() {
+        showMessage("adminTableMessage", "Tüm daire profilleri için PDF oluşturuluyor...", false);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let yPos = 20;
 
-        link.setAttribute("download", `Ayvalik_Yildiz_Konaklari_Borc_Listesi_${filenameDate}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showMessage("adminTableMessage", "Tüm borçlar Excel dosyası olarak indirildi.");
+        doc.setFontSize(18);
+        doc.text("Ayvalık Yıldız Konakları - Daire Sahipleri Profilleri", 105, yPos, null, null, "center");
+        yPos += 10;
+        doc.setFontSize(12);
+        doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, yPos, null, null, "center");
+        yPos += 20;
+
+        const profileData = [];
+        for (const daire of daireler) {
+            const flatDocRef = doc(db, 'apartments', daire);
+            const flatDocSnap = await getDoc(flatDocRef);
+            const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+            
+            profileData.push([
+                daire,
+                `${userData.adi || 'N/A'} ${userData.soyadi || ''}`,
+                userData.telefon || 'N/A'
+            ]);
+        }
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Daire', 'Adı Soyadı', 'Telefon']],
+            body: profileData,
+            theme: 'grid',
+            headStyles: { fillColor: [219, 233, 244] },
+            styles: {
+                font: 'helvetica',
+                fontSize: 10,
+                cellPadding: 3
+            }
+        });
+        
+        const filename = `Ayvalik_Yildiz_Konaklari_Daire_Profilleri_${new Date().toLocaleDateString('tr-TR')}.pdf`;
+        doc.save(filename);
+        showMessage("adminTableMessage", "Daire profilleri PDF dosyası başarıyla indirildi.");
+    }
+
+    // --- Yeni Eklenen Giderler Fonksiyonları ---
+    async function toggleExpensesVisibility() {
+        const monthFilter = document.getElementById('expenseMonthFilter').value;
+        const yearFilter = document.getElementById('expenseYearFilter').value;
+
+        const publishedExpensesRef = doc(db, 'settings', 'publishedExpenses');
+        const publishedExpensesSnap = await getDoc(publishedExpensesRef);
+        const currentPublishedData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false, month: null, year: null };
+
+        let newState;
+        let message;
+
+        // Kontrol: Zaten seçili ay ve yıl yayınlanmış mı?
+        const isCurrentSelectionPublished = currentPublishedData.published &&
+                                           currentPublishedData.month === monthFilter &&
+                                           currentPublishedData.year === Number(yearFilter);
+
+        if (isCurrentSelectionPublished) {
+            newState = { published: false, month: null, year: null };
+            message = `Giderler (${monthFilter} ${yearFilter}) yayından kaldırıldı.`;
+        } else {
+            newState = { published: true, month: monthFilter, year: Number(yearFilter) };
+            message = `Giderler (${monthFilter} ${yearFilter}) başarıyla yayınlandı.`;
+        }
+
+        try {
+            await setDoc(publishedExpensesRef, newState);
+            publishedExpenseData = newState;
+            showMessage("expenseMessage", message, false);
+            loadAdminExpensesTable(monthFilter, yearFilter);
+        } catch (error) {
+            console.error("Gider görünürlüğü güncellenirken hata:", error);
+            showMessage("expenseMessage", "Gider görünürlüğü güncellenirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function saveExpense() {
+        const dateInput = document.getElementById("expenseDateInput").value;
+        const name = document.getElementById("expenseNameInput").value.trim();
+        const amount = Number(document.getElementById("expenseAmountInput").value);
+
+        if (!dateInput || !name || isNaN(amount) || amount <= 0) {
+            showMessage("expenseMessage", "Lütfen tüm alanları doldurunuz ve geçerli bir tutar giriniz.", true);
+            return;
+        }
+        
+        const date = new Date(dateInput);
+        const expenseMonth = aylar[date.getMonth()];
+        const expenseYear = date.getFullYear();
+
+        try {
+            const expensesCollectionRef = collection(db, 'expenses');
+            await addDoc(expensesCollectionRef, {
+                tarih: dateInput,
+                harcamaAdi: name,
+                tutar: amount,
+                tarih_ay: expenseMonth,
+                tarih_yil: expenseYear,
+                timestamp: new Date()
+            });
+
+            showMessage("expenseMessage", "Gider başarıyla kaydedildi.");
+            document.getElementById("expenseNameInput").value = "";
+            document.getElementById("expenseAmountInput").value = "";
+
+            loadAdminExpensesTable(expenseMonth, expenseYear); // Tabloyu yeniden yükle
+        } catch (error) {
+            console.error("Gider kaydedilirken hata:", error);
+            showMessage("expenseMessage", "Gider kaydedilirken bir sorun oluştu.", true);
+        }
+    }
+
+    async function loadAdminExpensesTable(month, year) {
+        const table = document.getElementById("adminExpenseTable");
+        const publishButton = document.getElementById("publishButton");
+        table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th><th>İşlem</th></tr>';
+        const expenseTotals = document.getElementById("adminExpenseTotals");
+        let totalExpense = 0;
+        
+        if (!month || !year) {
+            showMessage("expenseMessage", "Lütfen filtrelemek için ay ve yıl seçin.", true);
+            return;
+        }
+
+        // Yayınlama durumunu kontrol et ve butonu güncelle
+        try {
+            const publishedExpensesRef = doc(db, 'settings', 'publishedExpenses');
+            const publishedExpensesSnap = await getDoc(publishedExpensesRef);
+            publishedExpenseData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false, month: null, year: null };
+
+            const isCurrentSelectionPublished = publishedExpenseData.published &&
+                                               publishedExpenseData.month === month &&
+                                               publishedExpenseData.year === Number(year);
+
+            publishButton.textContent = isCurrentSelectionPublished ? 'Yayından Kaldır' : 'Yayınla';
+            publishButton.onclick = toggleExpensesVisibility;
+
+        } catch (error) {
+            console.error("Gider görünürlüğü yüklenirken hata:", error);
+            publishButton.textContent = 'Yayınlama Durumu Yüklenemedi';
+            publishButton.disabled = true;
+        }
+        
+
+        try {
+            const expensesCollectionRef = collection(db, 'expenses');
+            const q = query(expensesCollectionRef,
+                            where("tarih_ay", "==", month),
+                            where("tarih_yil", "==", Number(year)));
+            
+            const expensesSnapshot = await getDocs(q);
+
+            if (expensesSnapshot.empty) {
+                table.innerHTML += '<tr><td colspan="4">Seçilen ay ve yıla ait gider kaydı bulunmamaktadır.</td></tr>';
+                expenseTotals.textContent = `Toplam Gider: 0 TL`;
+                return;
+            }
+
+            expensesSnapshot.forEach(doc => {
+                const expense = doc.data();
+                const expenseId = doc.id;
+                table.innerHTML += `<tr>
+                    <td>${expense.tarih}</td>
+                    <td>${expense.harcamaAdi}</td>
+                    <td>${expense.tutar} TL</td>
+                    <td><button class="delete-btn" onclick="deleteExpense('${expenseId}')">Sil</button></td>
+                </tr>`;
+                totalExpense += Number(expense.tutar);
+            });
+            
+            expenseTotals.textContent = `Toplam Gider: ${totalExpense} TL`;
+        } catch (error) {
+            console.error("Gider listesi yüklenirken hata:", error);
+            showMessage("expenseMessage", "Gider listesi yüklenirken bir sorun oluştu.", true);
+        }
+    }
+    
+    async function deleteExpense(expenseId) {
+        if (confirm("Bu gideri silmek istediğinizden emin misiniz?")) {
+            try {
+                const expenseDocRef = doc(db, 'expenses', expenseId);
+                await deleteDoc(expenseDocRef);
+                showMessage("expenseMessage", "Gider başarıyla silindi.");
+                const month = document.getElementById('expenseMonthFilter').value;
+                const year = document.getElementById('expenseYearFilter').value;
+                loadAdminExpensesTable(month, year);
+            } catch (error) {
+                console.error("Gider silinirken hata:", error);
+                showMessage("expenseMessage", "Gider silinirken bir sorun oluştu.", true);
+            }
+        }
     }
 
     // --- Yedekleme ve Geri Yükleme Fonksiyonları ---
-async function backupData() {
+
+    async function backupData() {
         showMessage("backupRestoreMessage", "Yedekleme başlatılıyor...", false);
         try {
-            // Tüm veriyi çekelim ki en güncel hali yedeklensin
             await loadAuthDataFromFirebase(); 
             await loadAllApartmentDebtsForBackup(); 
+
+            const expensesCollectionRef = collection(db, 'expenses');
+            const expensesSnapshot = await getDocs(expensesCollectionRef);
+            const allExpenses = [];
+            expensesSnapshot.forEach(doc => allExpenses.push({ ...doc.data(), id: doc.id }));
 
             const backupData = {
                 adminCredentials: adminCredentials,
                 aidatTutari: aidatTutari,
                 passwords: passwords,
-                allApartmentDebts: allApartmentDebts 
+                allApartmentDebts: allApartmentDebts,
+                allExpenses: allExpenses
             };
 
             const jsonString = JSON.stringify(backupData, null, 2);
@@ -763,7 +1511,6 @@ async function backupData() {
             const now = new Date();
             const filename = `aidat_yedek_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}.json`;
 
-            // Kullanıcının indirmesi için link oluştur
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -776,10 +1523,11 @@ async function backupData() {
             showMessage("backupRestoreMessage", `Yedek başarıyla bilgisayarınıza indirildi: ${filename}`, false);
 
         } catch (error) {
-            console.error("Yedekleme hatası:", error); // Konsola detayı yazdır
+            console.error("Yedekleme hatası:", error);
             showMessage("backupRestoreMessage", `Yedekleme sırasında bir hata oluştu: ${error.message}. Detaylar için konsola bakın.`, true);
         }
     }
+
     async function restoreData(event) {
         const file = event.target.files[0];
         if (!file) {
@@ -800,27 +1548,25 @@ async function backupData() {
 
                 const batch = writeBatch(db); 
 
-                // Admin verilerini yükle
                 const adminDocRef = doc(db, 'admin', 'credentials');
                 batch.set(adminDocRef, backupData.adminCredentials);
 
-                // Ayar verilerini yükle
                 const settingsDocRef = doc(db, 'settings', 'aidat');
                 batch.set(settingsDocRef, { amount: backupData.aidatTutari });
 
-                // Daire şifrelerini ve borçlarını yükle
+                const expensesVisibilityRef = doc(db, 'settings', 'publishedExpenses');
+                batch.set(expensesVisibilityRef, { published: backupData.publishedExpenseData.published || false, month: backupData.publishedExpenseData.month || null, year: backupData.publishedExpenseData.year || null});
+
                 for (const daire of daireler) {
                     const flatDocRef = doc(db, 'apartments', daire);
-                    batch.set(flatDocRef, { password: backupData.passwords[daire] || "1234" }, { merge: true });
+                    batch.set(flatDocRef, { password: backupData.passwords[daire] || defaultPassword }, { merge: true });
 
-                    // Mevcut borçları sil
                     const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
                     const currentDebtsSnapshot = await getDocs(debtsCollectionRef); 
                     currentDebtsSnapshot.forEach(docToDelete => {
                         batch.delete(doc(debtsCollectionRef, docToDelete.id));
                     });
 
-                    // Yedekdeki borçları yeniden ekle (yeni ID'lerle)
                     if (backupData.allApartmentDebts[daire]) {
                         backupData.allApartmentDebts[daire].forEach(debt => {
                             const newDebtRef = doc(debtsCollectionRef); 
@@ -833,6 +1579,26 @@ async function backupData() {
                         });
                     }
                 }
+
+                const expensesCollectionRef = collection(db, 'expenses');
+                const currentExpensesSnapshot = await getDocs(expensesCollectionRef);
+                currentExpensesSnapshot.forEach(docToDelete => {
+                    batch.delete(doc(expensesCollectionRef, docToDelete.id));
+                    });
+
+                if (backupData.allExpenses && backupData.allExpenses.length > 0) {
+                    backupData.allExpenses.forEach(expense => {
+                        const newExpenseRef = doc(expensesCollectionRef);
+                        batch.set(newExpenseRef, {
+                            tarih: expense.tarih,
+                            harcamaAdi: expense.harcamaAdi,
+                            tutar: expense.tutar,
+                            tarih_ay: expense.tarih_ay,
+                            tarih_yil: expense.tarih_yil,
+                            timestamp: expense.timestamp
+                        });
+                    });
+                }
                 
                 await batch.commit();
 
@@ -840,12 +1606,11 @@ async function backupData() {
                 setTimeout(() => { location.reload(); }, 2000); 
             } catch (error) {
                 console.error("Geri yükleme hatası:", error);
-                showMessage("backupRestoreMessage", `Geri yükleme sırasında hata oluştu: ${error.message}`, true);
+                showMessage("backupRestoreMessage", `Geri yükleme sırasında bir hata oluştu: ${error.message}. Detaylar için konsola bakın.`, true);
             }
         };
         reader.readAsText(file);
     }
-
 
     // --- HTML'den doğrudan çağrılması gereken fonksiyonları global yapıyoruz ---
     window.login = login;
@@ -858,18 +1623,31 @@ async function backupData() {
     window.silBorc = silBorc;
     window.editDebt = editDebt;
     window.updateAidatTutari = updateAidatTutari;
-    window.addAdvanceToAll = addAdvanceToAll;
     window.sifreAyarla = sifreAyarla;
+    window.resetAllPasswords = resetAllPasswords;
     window.setAdminPassword = setAdminPassword;
     window.deleteAllDebts = deleteAllDebts;
-    window.downloadAllDebtsCsv = downloadAllDebtsCsv;
+    window.downloadAllDebtsPdf = downloadAllDebtsPdf;
+    window.downloadAllProfilesPdf = downloadAllProfilesPdf;
     window.backupData = backupData; 
     window.restoreData = restoreData; 
     window.showMessage = showMessage; 
-
+    window.changeUserPassword = changeUserPassword;
+    window.loadUserProfile = loadUserProfile;
+    window.saveUserProfile = saveUserProfile;
+    window.saveExpense = saveExpense; 
+    window.loadAdminExpensesTable = loadAdminExpensesTable; 
+    window.loadUserExpensesTable = loadUserExpensesTable; 
+    window.deleteExpense = deleteExpense;
+    window.isProfileComplete = isProfileComplete;
+    window.checkProfileAndToggleExpensesButton = checkProfileAndToggleExpensesButton;
+    window.editUserProfileAsAdmin = editUserProfileAsAdmin;
+    window.deleteUserProfileAsAdmin = deleteUserProfileAsAdmin;
+    window.toggleExpensesVisibility = toggleExpensesVisibility;
 
     // --- Uygulama Başlangıcı ---
     loadAuthDataFromFirebase();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
