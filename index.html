@@ -40,10 +40,15 @@
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    h1, h2, h3, h4 {
+    h1, h2, h3, h4, h5 {
       text-align: center;
       color: var(--primary-color);
       margin-bottom: 20px;
+    }
+    h5 {
+        text-align: left;
+        margin-top: 15px;
+        margin-bottom: 5px;
     }
     input, select, button {
       padding: 12px;
@@ -101,6 +106,8 @@
     .download-btn:hover:not(:disabled), .backup-btn:hover:not(:disabled) { background-color: var(--success-hover); }
     .upload-btn { background-color: var(--info-color); }
     .upload-btn:hover:not(:disabled) { background-color: var(--info-hover); }
+    .info-btn { background-color: var(--info-color); }
+    .info-btn:hover:not(:disabled) { background-color: var(--info-hover); }
     .message { text-align: center; color: var(--success-color); margin-top: 10px; font-weight: bold; }
     .error-message { text-align: center; color: var(--danger-color); margin-top: 10px; font-weight: bold; }
     .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed var(--border-color); font-size: 0.9em; color: #555; }
@@ -133,7 +140,7 @@
       border-radius: 6px;
     }
     .collapsible-content.active {
-      max-height: 1000px;
+      max-height: 1200px; /* Increased max-height */
       padding: 18px;
     }
     .collapsible-header:after {
@@ -361,7 +368,6 @@
         <select id="flatSelect" onchange="loadAdminTable()"></select>
         <div id="userInfoDisplay" class="user-profile-display hidden"></div>
         
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
         <div style="display: flex; gap: 10px; margin-top: 10px;">
             <select id="debtMonthFilter" style="width: 50%;"></select>
             <select id="debtYearFilter" style="width: 50%;"></select>
@@ -370,10 +376,6 @@
             <button onclick="applyAdminDebtFilter()">Filtrele</button>
             <button onclick="loadAdminTable()" class="edit-btn" style="color: white !important;">Filtreyi Temizle</button>
         </div>
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
-
-        <button class="download-btn" onclick="downloadAllProfilesPdf()" style="margin-top: 20px;">Tüm Profil Bilgilerini İndir</button>
-        <button class="download-btn" onclick="downloadAllDebtsPdf()">Tüm Borçları PDF Olarak İndir</button>
         
         <div class="admin-table-container">
             <div class="table-responsive">
@@ -385,6 +387,23 @@
 
         <div class="totals" id="borcToplam"></div>
         <div id="adminTableMessage" class="message hidden"></div>
+        
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
+        <div class="section-divider"></div>
+        <h4>Raporlar ve Toplu İşlemler</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+            <button class="download-btn" onclick="downloadAllProfilesPdf()" style="flex-grow: 1;">Tüm Profilleri İndir (PDF)</button>
+            <button class="download-btn" onclick="downloadAllDebtsPdf()" style="flex-grow: 1;">Tüm Borçları İndir (PDF)</button>
+        </div>
+        <div style="margin-top: 15px;">
+            <h5>Toplu Profil Güncelleme</h5>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <button class="info-btn" onclick="downloadProfileTemplate()" style="flex-grow: 1;">Şablon İndir (.csv)</button>
+                <input type="file" id="profileTemplateInput" accept=".csv" style="display: none;" onchange="uploadProfileTemplate(event)">
+                <button class="upload-btn" onclick="document.getElementById('profileTemplateInput').click()" style="flex-grow: 1;">Şablon Yükle (.csv)</button>
+            </div>
+        </div>
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
       </div>
 
       <div class="section-divider"></div>
@@ -532,7 +551,6 @@
       yearSelect.value = currentYear;
     }
 
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
     function fillAdminDebtFilters() {
       const monthSelect = document.getElementById('debtMonthFilter');
       const yearSelect = document.getElementById('debtYearFilter');
@@ -547,7 +565,6 @@
       monthSelect.value = aylar[new Date().getMonth()];
       yearSelect.value = currentYear;
     }
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
 
     // --- Veri Yükleme ve Başlangıç ---
     async function loadAuthDataFromFirebase() {
@@ -598,7 +615,7 @@
         document.getElementById("adminPanel").classList.remove("hidden");
         fillFlatSelects();
         fillExpenseFilters();
-        fillAdminDebtFilters(); // YENİ EKLENDİ
+        fillAdminDebtFilters();
         loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
         await loadAllApartmentDebtsForBackup(); 
         
@@ -862,7 +879,6 @@
         });
     }
 
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
     async function loadAdminTable(filter = false) {
       const daire = document.getElementById("flatSelect").value;
       const table = document.getElementById("adminTable");
@@ -895,7 +911,7 @@
 
         const debtSnapshot = await getDocs(q);
         if (debtSnapshot.empty) {
-            table.innerHTML += '<tr><td colspan="5">Bu daire için borç bulunmamaktadır.</td></tr>';
+            table.innerHTML += `<tr><td colspan="5">Seçili kriterlere uygun borç bulunmamaktadır.</td></tr>`;
             document.getElementById("borcToplam").textContent = `Toplam: 0 TL | Ödenen: 0 TL | Kalan: 0 TL`;
             return;
         }
@@ -926,7 +942,6 @@
     function applyAdminDebtFilter() {
         loadAdminTable(true);
     }
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
     
     async function editUserProfileAsAdmin(daire) {
         const flatDocRef = doc(db, 'apartments', daire);
@@ -1131,7 +1146,119 @@
     }
 
     async function downloadAllDebtsPdf() { /* ... */ }
-    async function downloadAllProfilesPdf() { /* ... */ }
+    
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
+    async function downloadAllProfilesPdf() {
+        showMessage("adminTableMessage", "Tüm daire profilleri için PDF oluşturuluyor...", false);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let yPos = 20;
+
+        doc.setFontSize(18);
+        doc.text("Ayvalık Yıldız Konakları - Daire Sahipleri Profilleri", 105, yPos, null, null, "center");
+        yPos += 10;
+        doc.setFontSize(12);
+        doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, yPos, null, null, "center");
+        yPos += 20;
+
+        const profileData = [];
+        for (const daire of daireler) {
+            const flatDocRef = doc(db, 'apartments', daire);
+            const flatDocSnap = await getDoc(flatDocRef);
+            const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+            
+            profileData.push([
+                daire,
+                `${userData.adi || 'N/A'} ${userData.soyadi || ''}`,
+                userData.telefon || 'N/A'
+            ]);
+        }
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Daire', 'Adı Soyadı', 'Telefon']],
+            body: profileData,
+            theme: 'grid',
+            headStyles: { fillColor: [219, 233, 244] },
+            styles: {
+                font: 'helvetica',
+                fontSize: 10,
+                cellPadding: 3
+            }
+        });
+        
+        const filename = `Ayvalik_Yildiz_Konaklari_Daire_Profilleri_${new Date().toLocaleDateString('tr-TR')}.pdf`;
+        doc.save(filename);
+        showMessage("adminTableMessage", "Daire profilleri PDF dosyası başarıyla indirildi.");
+    }
+
+    function downloadProfileTemplate() {
+        const headers = "Daire,Ad,Soyad,Telefon";
+        let csvContent = "data:text/csv;charset=utf-8," + headers + "\n";
+
+        daireler.forEach(daire => {
+            csvContent += `${daire},,,\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "profil_sablonu.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showMessage("adminTableMessage", "Profil şablonu indirildi.");
+    }
+
+    async function uploadProfileTemplate(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const text = e.target.result;
+            const rows = text.split('\n').slice(1); // Başlık satırını atla
+            const batch = writeBatch(db);
+            let updatedCount = 0;
+
+            for (const row of rows) {
+                if (!row.trim()) continue; // Boş satırları atla
+                const columns = row.split(',');
+                const daireId = columns[0] ? columns[0].trim().toUpperCase() : '';
+                const adi = columns[1] ? columns[1].trim() : '';
+                const soyadi = columns[2] ? columns[2].trim() : '';
+                const telefon = columns[3] ? columns[3].trim() : '';
+
+                if (daireler.includes(daireId) && (adi || soyadi || telefon)) {
+                    const flatDocRef = doc(db, 'apartments', daireId);
+                    const updateData = {};
+                    if (adi) updateData.adi = adi;
+                    if (soyadi) updateData.soyadi = soyadi;
+                    if (telefon) updateData.telefon = telefon;
+                    
+                    batch.set(flatDocRef, updateData, { merge: true });
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0) {
+                try {
+                    await batch.commit();
+                    showMessage("adminTableMessage", `${updatedCount} daire profili başarıyla güncellendi.`);
+                    loadAdminTable(); // Mevcut daire güncellendiyse tabloyu yenile
+                } catch (error) {
+                    console.error("Profil şablonu yüklenirken hata:", error);
+                    showMessage("adminTableMessage", "Profiller güncellenirken bir hata oluştu.", true);
+                }
+            } else {
+                showMessage("adminTableMessage", "Dosyada güncellenecek geçerli bir bilgi bulunamadı.", true);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Aynı dosyayı tekrar yüklemeye izin ver
+    }
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
+
     async function backupData() { /* ... */ }
     async function restoreData(event) { /* ... */ }
 
@@ -1271,7 +1398,9 @@
     window.calculateAndShowBalance = calculateAndShowBalance;
     window.backupData = backupData;
     window.restoreData = restoreData;
-    window.applyAdminDebtFilter = applyAdminDebtFilter; // YENİ EKLENDİ
+    window.applyAdminDebtFilter = applyAdminDebtFilter;
+    window.downloadProfileTemplate = downloadProfileTemplate;
+    window.uploadProfileTemplate = uploadProfileTemplate;
     
     // --- Uygulama Başlangıcı ---
     loadAuthDataFromFirebase();
