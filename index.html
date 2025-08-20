@@ -233,6 +233,14 @@
       border: 1px solid #e0e0e0;
       border-radius: 6px;
     }
+    .profile-info-text {
+        background-color: #e9ecef;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        margin: 8px 0;
+        text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -249,7 +257,7 @@
     </div>
 
     <div id="userPanel" class="hidden">
-      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
+      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span><span id="userFullNameDisplay" style="font-weight: normal;"></span></h3>
       
       <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
         <button id="showDebtBtn" style="flex-grow: 1;">Bakiye</button>
@@ -287,9 +295,14 @@
 
       <div id="profilePage" class="hidden">
         <h4>Profil Bilgilerim</h4>
-        <input type="text" id="nameInput" placeholder="Adınız">
-        <input type="text" id="surnameInput" placeholder="Soyadınız">
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
+        <div class="profile-info-text">
+            <strong>Ad Soyad:</strong> <span id="profileNameDisplay">Yükleniyor...</span>
+            <p style="font-size: 0.8em; margin-top: 5px;">(Ad/Soyad değişikliği için lütfen yönetici ile iletişime geçin.)</p>
+        </div>
         <input type="text" id="phoneInput" placeholder="Telefon Numaranız">
+        <input type="email" id="mailInput" placeholder="E-posta Adresiniz">
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
         <button onclick="saveUserProfile()">Bilgileri Kaydet</button>
         <button onclick="changeUserPassword()">Şifremi Değiştir</button>
         <div id="profileMessage" class="message hidden"></div>
@@ -388,7 +401,6 @@
         <div class="totals" id="borcToplam"></div>
         <div id="adminTableMessage" class="message hidden"></div>
         
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
         <div class="section-divider"></div>
         <h4>Raporlar ve Toplu İşlemler</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
@@ -403,7 +415,6 @@
                 <button class="upload-btn" onclick="document.getElementById('profileTemplateInput').click()" style="flex-grow: 1;">Şablon Yükle (.csv)</button>
             </div>
         </div>
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
       </div>
 
       <div class="section-divider"></div>
@@ -642,7 +653,11 @@
 
       document.getElementById("login").classList.add("hidden");
       document.getElementById("userPanel").classList.remove("hidden");
+      
+      const userData = flatDocSnap.data();
       document.getElementById("userNameDisplay").textContent = username;
+      document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
+
       loggedInUsername = username;
       
       document.getElementById('balanceSummary').addEventListener('click', function() {
@@ -714,24 +729,23 @@
     async function loadUserProfile() {
         const userDocSnap = await getDoc(doc(db, 'apartments', loggedInUsername));
         if (userDocSnap.exists()) {
-            const { adi = '', soyadi = '', telefon = '' } = userDocSnap.data();
-            document.getElementById('nameInput').value = adi;
-            document.getElementById('surnameInput').value = soyadi;
+            const { adi = '', soyadi = '', telefon = '', mail = '' } = userDocSnap.data();
+            document.getElementById('profileNameDisplay').textContent = `${adi} ${soyadi}`;
             document.getElementById('phoneInput').value = telefon;
+            document.getElementById('mailInput').value = mail;
         }
     }
 
     async function saveUserProfile() {
-        const adi = document.getElementById('nameInput').value.trim();
-        const soyadi = document.getElementById('surnameInput').value.trim();
         const telefon = document.getElementById('phoneInput').value.trim();
+        const mail = document.getElementById('mailInput').value.trim();
 
-        if (!adi || !soyadi || !telefon) {
-            return showMessage("profileMessage", "Lütfen tüm alanları doldurunuz.", true);
+        if (!telefon) { // Mail zorunlu değil
+            return showMessage("profileMessage", "Lütfen telefon numaranızı girin.", true);
         }
 
         try {
-            await updateDoc(doc(db, 'apartments', loggedInUsername), { adi, soyadi, telefon });
+            await updateDoc(doc(db, 'apartments', loggedInUsername), { telefon, mail });
             showMessage("profileMessage", "Profil bilgileriniz kaydedildi.");
             await checkProfileAndToggleExpensesButton();
         } catch (error) {
@@ -891,6 +905,7 @@
         userInfoDisplay.innerHTML = `<p><strong>Daire:</strong> ${daire}</p>
             <p><strong>Adı Soyadı:</strong> ${userData.adi || 'Bilgi Yok'} ${userData.soyadi || ''}</p>
             <p><strong>Telefon:</strong> ${userData.telefon || 'Bilgi Yok'}</p>
+            <p><strong>E-posta:</strong> ${userData.mail || 'Bilgi Yok'}</p>
             <div class="user-profile-actions">
               <button class="edit-btn" onclick="editUserProfileAsAdmin('${daire}')">Düzenle</button>
               <button class="delete-btn" onclick="deleteUserProfileAsAdmin('${daire}')">Sil</button>
@@ -954,9 +969,11 @@
         if (newSoyadi === null) return;
         const newTelefon = prompt(`Daire ${daire} için yeni telefon:`, userData.telefon || '');
         if (newTelefon === null) return;
+        const newMail = prompt(`Daire ${daire} için yeni e-posta:`, userData.mail || '');
+        if (newMail === null) return;
 
         try {
-            await updateDoc(flatDocRef, { adi: newAdi, soyadi: newSoyadi, telefon: newTelefon });
+            await updateDoc(flatDocRef, { adi: newAdi, soyadi: newSoyadi, telefon: newTelefon, mail: newMail });
             showMessage("adminTableMessage", "Profil güncellendi.");
             loadAdminTable();
         } catch (e) {
@@ -970,7 +987,8 @@
                 await updateDoc(doc(db, 'apartments', daire), {
                     adi: deleteField(),
                     soyadi: deleteField(),
-                    telefon: deleteField()
+                    telefon: deleteField(),
+                    mail: deleteField()
                 });
                 showMessage("adminTableMessage", "Profil silindi.");
                 loadAdminTable();
@@ -1147,7 +1165,6 @@
 
     async function downloadAllDebtsPdf() { /* ... */ }
     
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
     async function downloadAllProfilesPdf() {
         showMessage("adminTableMessage", "Tüm daire profilleri için PDF oluşturuluyor...", false);
         const { jsPDF } = window.jspdf;
@@ -1170,13 +1187,14 @@
             profileData.push([
                 daire,
                 `${userData.adi || 'N/A'} ${userData.soyadi || ''}`,
-                userData.telefon || 'N/A'
+                userData.telefon || 'N/A',
+                userData.mail || 'N/A'
             ]);
         }
         
         doc.autoTable({
             startY: yPos,
-            head: [['Daire', 'Adı Soyadı', 'Telefon']],
+            head: [['Daire', 'Adı Soyadı', 'Telefon', 'E-posta']],
             body: profileData,
             theme: 'grid',
             headStyles: { fillColor: [219, 233, 244] },
@@ -1193,11 +1211,11 @@
     }
 
     function downloadProfileTemplate() {
-        const headers = "Daire,Ad,Soyad,Telefon";
+        const headers = "Daire,Ad,Soyad,Telefon,Mail";
         let csvContent = "data:text/csv;charset=utf-8," + headers + "\n";
 
         daireler.forEach(daire => {
-            csvContent += `${daire},,,\n`;
+            csvContent += `${daire},,,,\n`;
         });
 
         const encodedUri = encodeURI(csvContent);
@@ -1217,24 +1235,26 @@
         const reader = new FileReader();
         reader.onload = async function(e) {
             const text = e.target.result;
-            const rows = text.split('\n').slice(1); // Başlık satırını atla
+            const rows = text.split('\n').slice(1);
             const batch = writeBatch(db);
             let updatedCount = 0;
 
             for (const row of rows) {
-                if (!row.trim()) continue; // Boş satırları atla
+                if (!row.trim()) continue;
                 const columns = row.split(',');
                 const daireId = columns[0] ? columns[0].trim().toUpperCase() : '';
                 const adi = columns[1] ? columns[1].trim() : '';
                 const soyadi = columns[2] ? columns[2].trim() : '';
                 const telefon = columns[3] ? columns[3].trim() : '';
+                const mail = columns[4] ? columns[4].trim() : '';
 
-                if (daireler.includes(daireId) && (adi || soyadi || telefon)) {
+                if (daireler.includes(daireId) && (adi || soyadi || telefon || mail)) {
                     const flatDocRef = doc(db, 'apartments', daireId);
                     const updateData = {};
                     if (adi) updateData.adi = adi;
                     if (soyadi) updateData.soyadi = soyadi;
                     if (telefon) updateData.telefon = telefon;
+                    if (mail) updateData.mail = mail;
                     
                     batch.set(flatDocRef, updateData, { merge: true });
                     updatedCount++;
@@ -1245,7 +1265,7 @@
                 try {
                     await batch.commit();
                     showMessage("adminTableMessage", `${updatedCount} daire profili başarıyla güncellendi.`);
-                    loadAdminTable(); // Mevcut daire güncellendiyse tabloyu yenile
+                    loadAdminTable();
                 } catch (error) {
                     console.error("Profil şablonu yüklenirken hata:", error);
                     showMessage("adminTableMessage", "Profiller güncellenirken bir hata oluştu.", true);
@@ -1254,10 +1274,9 @@
                 showMessage("adminTableMessage", "Dosyada güncellenecek geçerli bir bilgi bulunamadı.", true);
             }
         };
-        reader.readAsText(file);
-        event.target.value = ''; // Aynı dosyayı tekrar yüklemeye izin ver
+        reader.readAsText(file, 'UTF-8');
+        event.target.value = '';
     }
-    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
 
     async function backupData() { /* ... */ }
     async function restoreData(event) { /* ... */ }
