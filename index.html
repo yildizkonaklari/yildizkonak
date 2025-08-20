@@ -699,6 +699,12 @@
 
       try {
         const debtSnapshot = await getDocs(collection(db, 'apartments', username, 'debts'));
+        
+        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ: Tarih filtresi için mevcut tarihi al
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonthIndex = today.getMonth();
+        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
 
         if (debtSnapshot.empty) {
             table.innerHTML += '<tr><td colspan="3">Borcunuz bulunmamaktadır.</td></tr>';
@@ -710,7 +716,32 @@
         const debts = [];
         debtSnapshot.forEach(doc => debts.push(doc.data()));
         
-        debts.sort((a, b) => {
+        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ: Borçları tarihe göre filtrele
+        const filteredDebts = debts.filter(entry => {
+            const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
+            if (!debtMonthStr || !debtYearStr) return false; // Hatalı veriyi atla
+
+            const debtYear = parseInt(debtYearStr, 10);
+            const debtMonthIndex = aylar.indexOf(debtMonthStr);
+
+            if (debtYear < currentYear) {
+                return true; // Geçmiş yılların borçlarını her zaman göster
+            }
+            if (debtYear === currentYear && debtMonthIndex <= currentMonthIndex) {
+                return true; // Bu yılın geçmiş veya mevcut aylarını göster
+            }
+            return false; // Gelecek ayların borçlarını gösterme
+        });
+        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
+
+        if (filteredDebts.length === 0) {
+             table.innerHTML += '<tr><td colspan="3">Görüntülenecek borcunuz bulunmamaktadır.</td></tr>';
+            document.getElementById("userDebtTotals").textContent = `Ödenen: 0 TL | Ödenmemiş: 0 TL`;
+            unpaidTotalSpan.textContent = `₺0,00`;
+            return;
+        }
+        
+        filteredDebts.sort((a, b) => {
             const [ayA, yilA] = a.ay.split(' ');
             const [ayB, yilB] = b.ay.split(' ');
             if (yilA !== yilB) return yilA.localeCompare(yilB);
@@ -718,7 +749,8 @@
         });
 
         let tableContent = '';
-        debts.forEach(entry => {
+        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Filtrelenmiş borçlar üzerinden döngü kur
+        filteredDebts.forEach(entry => {
           const statusText = entry.odendi ? "Ödendi" : "Bekliyor";
           const rowClass = entry.odendi ? "" : "unpaid-debt";
           const tipFormatted = entry.tip.charAt(0).toUpperCase() + entry.tip.slice(1);
