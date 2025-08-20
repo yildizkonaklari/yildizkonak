@@ -258,7 +258,6 @@
 
         <div id="debtDetails" class="collapsible-debt-details">
             <div class="table-responsive">
-              <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tablo başlığı güncellendi -->
               <table id="userTable">
                 <tr><th>Açıklama</th><th>Tutar</th><th>Durum</th></tr>
               </table>
@@ -503,7 +502,6 @@
       content.classList.toggle('active');
       content.style.maxHeight = content.classList.contains('active') ? content.scrollHeight + "px" : null;
     }
-    window.toggleSection = toggleSection;
 
     function showPage(pageId) {
         ['debtPage', 'profilePage', 'expensesPage'].forEach(id => {
@@ -511,7 +509,6 @@
         });
         document.getElementById(pageId).classList.remove('hidden');
     }
-    window.showPage = showPage;
 
     function fillExpenseFilters() {
       const monthSelect = document.getElementById('expenseMonthFilter');
@@ -571,7 +568,7 @@
       const username = document.getElementById("username").value.trim().toUpperCase();
       const password = document.getElementById("password").value;
       
-      if (username === adminCredentials.username.toUpperCase() && password === adminCredentials.password) {
+      if (username === "ADMIN" && password === adminCredentials.password) {
         document.getElementById("login").classList.add("hidden");
         document.getElementById("adminPanel").classList.remove("hidden");
         fillFlatSelects();
@@ -660,7 +657,6 @@
             warningMsg.classList.remove('hidden');
         }
     }
-    window.checkProfileAndToggleExpensesButton = checkProfileAndToggleExpensesButton;
 
     async function loadUserProfile() {
         const userDocSnap = await getDoc(doc(db, 'apartments', loggedInUsername));
@@ -697,7 +693,6 @@
       const unpaidTotalSpan = document.getElementById("userUnpaidTotal"); 
       unpaidTotalSpan.textContent = "Hesaplanıyor...";
       
-      // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tablo başlığı güncellendi
       table.innerHTML = '<tr><th>Açıklama</th><th>Tutar</th><th>Durum</th></tr>';
       let totalPaid = 0;
       let totalUnpaid = 0;
@@ -706,7 +701,6 @@
         const debtSnapshot = await getDocs(collection(db, 'apartments', username, 'debts'));
 
         if (debtSnapshot.empty) {
-            // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Colspan güncellendi
             table.innerHTML += '<tr><td colspan="3">Borcunuz bulunmamaktadır.</td></tr>';
             document.getElementById("userDebtTotals").textContent = `Ödenen: 0 TL | Ödenmemiş: 0 TL`;
             unpaidTotalSpan.textContent = `₺0,00`;
@@ -729,7 +723,6 @@
           const rowClass = entry.odendi ? "" : "unpaid-debt";
           const tipFormatted = entry.tip.charAt(0).toUpperCase() + entry.tip.slice(1);
           
-          // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Ay ve Tip birleştirildi
           tableContent += `<tr class="${rowClass}">
                             <td>${entry.ay} - ${tipFormatted}</td>
                             <td>${entry.tutar} TL</td>
@@ -797,8 +790,7 @@
         }
     }
 
-    // --- Yönetici Paneli Fonksiyonları (değişiklik yapılmadı) ---
-    // Bu bölümdeki fonksiyonlar önceki versiyon ile aynı olduğu için kısaltılmıştır.
+    // --- Yönetici Paneli Fonksiyonları ---
     function fillFlatSelects() {
         const selects = ["flatSelect", "borcKime", "sifreDaire"];
         selects.forEach(id => {
@@ -859,61 +851,354 @@
       }
     }
     
-    // Diğer yönetici fonksiyonları...
-    window.login = login;
-    window.logout = logout;
-    window.loadUserTable = loadUserTable; 
-    window.fillFlatSelects = fillFlatSelects; 
-    window.loadAdminTable = loadAdminTable; 
-    window.changeUserPassword = changeUserPassword;
-    window.loadUserProfile = loadUserProfile;
-    window.saveUserProfile = saveUserProfile;
-    window.loadUserExpensesTable = loadUserExpensesTable; 
-    
-    // Admin fonksiyonlarını globale ekleme (kısaltıldı)
-    async function markPaid(daire, debtId) { /* ... */ }
-    async function ekleBorc() { /* ... */ }
-    async function silBorc(daire, debtId) { /* ... */ }
-    async function editDebt(daire, debtId) { /* ... */ }
-    async function updateAidatTutari() { /* ... */ }
-    async function sifreAyarla() { /* ... */ }
-    async function resetAllPasswords() { /* ... */ }
-    async function setAdminPassword() { /* ... */ }
-    async function deleteAllDebts() { /* ... */ }
+    async function editUserProfileAsAdmin(daire) {
+        const flatDocRef = doc(db, 'apartments', daire);
+        const flatDocSnap = await getDoc(flatDocRef);
+        const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+
+        const newAdi = prompt(`Daire ${daire} için yeni ad:`, userData.adi || '');
+        if (newAdi === null) return;
+        const newSoyadi = prompt(`Daire ${daire} için yeni soyad:`, userData.soyadi || '');
+        if (newSoyadi === null) return;
+        const newTelefon = prompt(`Daire ${daire} için yeni telefon:`, userData.telefon || '');
+        if (newTelefon === null) return;
+
+        try {
+            await updateDoc(flatDocRef, { adi: newAdi, soyadi: newSoyadi, telefon: newTelefon });
+            showMessage("adminTableMessage", "Profil güncellendi.");
+            loadAdminTable();
+        } catch (e) {
+            showMessage("adminTableMessage", "Profil güncellenemedi.", true);
+        }
+    }
+
+    async function deleteUserProfileAsAdmin(daire) {
+        if (confirm(`${daire} profili silinecek, emin misiniz?`)) {
+            try {
+                await updateDoc(doc(db, 'apartments', daire), {
+                    adi: deleteField(),
+                    soyadi: deleteField(),
+                    telefon: deleteField()
+                });
+                showMessage("adminTableMessage", "Profil silindi.");
+                loadAdminTable();
+            } catch (e) {
+                showMessage("adminTableMessage", "Profil silinemedi.", true);
+            }
+        }
+    }
+
+    async function markPaid(daire, debtId) {
+        if (confirm("Borç ödendi olarak işaretlenecek, emin misiniz?")) {
+            try {
+                await updateDoc(doc(db, 'apartments', daire, 'debts', debtId), { odendi: true });
+                showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
+                loadAdminTable();
+            } catch (e) {
+                showMessage("adminTableMessage", "İşlem başarısız.", true);
+            }
+        }
+    }
+
+    async function ekleBorc() {
+        const daire = document.getElementById("borcKime").value;
+        const ay = document.getElementById("borcAy").value.trim();
+        const tutar = Number(document.getElementById("borcTutar").value);
+        const tip = document.getElementById("borcTipi").value;
+
+        if (!ay || !tutar || tutar <= 0) {
+            return showMessage("addDebtMessage", "Lütfen tüm alanları doğru doldurun.", true);
+        }
+
+        const apartmentsToAdd = (daire === "all_apartments") ? daireler : [daire];
+        const batch = writeBatch(db);
+        let successCount = 0;
+        try {
+            for (const flat of apartmentsToAdd) {
+                const q = query(collection(db, 'apartments', flat, 'debts'), where("ay", "==", ay), where("tip", "==", tip));
+                const existing = await getDocs(q);
+                if (existing.empty) {
+                    const newDebtRef = doc(collection(db, 'apartments', flat, 'debts'));
+                    batch.set(newDebtRef, { ay, tutar, tip, odendi: false });
+                    successCount++;
+                }
+            }
+            if (successCount > 0) {
+                await batch.commit();
+                showMessage("addDebtMessage", `${successCount} daireye borç eklendi.`);
+                loadAdminTable();
+            } else {
+                showMessage("addDebtMessage", "Seçili daire(ler) için bu borç zaten mevcut.", true);
+            }
+        } catch (e) {
+            showMessage("addDebtMessage", "Borç eklenemedi.", true);
+        }
+    }
+
+    async function silBorc(daire, debtId) {
+        if (confirm("Bu borç kaydı silinecek, emin misiniz?")) {
+            try {
+                await deleteDoc(doc(db, 'apartments', daire, 'debts', debtId));
+                showMessage("adminTableMessage", "Borç silindi.");
+                loadAdminTable();
+            } catch (e) {
+                showMessage("adminTableMessage", "Borç silinemedi.", true);
+            }
+        }
+    }
+
+    async function editDebt(daire, debtId) {
+        const debtDoc = await getDoc(doc(db, 'apartments', daire, 'debts', debtId));
+        if (!debtDoc.exists()) return showMessage("adminTableMessage", "Borç bulunamadı.", true);
+        const current = debtDoc.data();
+
+        const newAy = prompt("Ay:", current.ay);
+        if (newAy === null) return;
+        const newTutar = prompt("Tutar:", current.tutar);
+        if (newTutar === null || isNaN(Number(newTutar)) || Number(newTutar) <= 0) return showMessage("adminTableMessage", "Geçersiz tutar.", true);
+        const newTip = prompt("Tip (aidat/avans):", current.tip);
+        if (newTip === null || !['aidat', 'avans'].includes(newTip)) return showMessage("adminTableMessage", "Geçersiz tip.", true);
+
+        try {
+            await updateDoc(doc(db, 'apartments', daire, 'debts', debtId), { ay: newAy, tutar: Number(newTutar), tip: newTip });
+            showMessage("adminTableMessage", "Borç güncellendi.");
+            loadAdminTable();
+        } catch (e) {
+            showMessage("adminTableMessage", "Borç güncellenemedi.", true);
+        }
+    }
+
+    async function updateAidatTutari() {
+        const yeni = Number(document.getElementById("aidatTutariInput").value);
+        if (!yeni || yeni <= 0) return showMessage("aidatMessage", "Geçerli bir tutar girin.", true);
+        
+        const currentMonth = new Date().toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+        try {
+            await setDoc(doc(db, 'settings', 'aidat'), { amount: yeni });
+            aidatTutari = yeni;
+            const batch = writeBatch(db);
+            let addedCount = 0;
+            for (const daire of daireler) {
+                const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", currentMonth), where("tip", "==", "aidat"));
+                const existing = await getDocs(q);
+                if (existing.empty) {
+                    const newDebtRef = doc(collection(db, 'apartments', daire, 'debts'));
+                    batch.set(newDebtRef, { ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false });
+                    addedCount++;
+                }
+            }
+            if (addedCount > 0) await batch.commit();
+            showMessage("aidatMessage", `Aidat güncellendi. ${addedCount} daireye ${currentMonth} borcu eklendi.`);
+            loadAdminTable();
+        } catch (e) {
+            showMessage("aidatMessage", "Aidat güncellenemedi.", true);
+        }
+    }
+
+    async function sifreAyarla() {
+        const daire = document.getElementById("sifreDaire").value;
+        const yeniSifre = document.getElementById("yeniSifre").value;
+        if (yeniSifre.length < 3) return showMessage("passwordMessage", "Şifre en az 3 karakter olmalı.", true);
+        try {
+            await setDoc(doc(db, 'apartments', daire), { password: yeniSifre }, { merge: true });
+            passwords[daire] = yeniSifre;
+            showMessage("passwordMessage", `${daire} şifresi güncellendi.`);
+        } catch (e) {
+            showMessage("passwordMessage", "Şifre güncellenemedi.", true);
+        }
+    }
+
+    async function resetAllPasswords() {
+        if (confirm("Tüm şifreler '1256' olarak sıfırlanacak. Emin misiniz?")) {
+            const batch = writeBatch(db);
+            daireler.forEach(daire => {
+                batch.set(doc(db, 'apartments', daire), { password: defaultPassword }, { merge: true });
+                passwords[daire] = defaultPassword;
+            });
+            await batch.commit();
+            showMessage("passwordMessage", "Tüm şifreler sıfırlandı.");
+        }
+    }
+
+    async function setAdminPassword() {
+        const newPass = document.getElementById("adminYeniSifre").value;
+        if (newPass.length < 5) return showMessage("adminPasswordMessage", "Şifre en az 5 karakter olmalı.", true);
+        try {
+            await setDoc(doc(db, 'admin', 'credentials'), { username: "admin", password: newPass });
+            adminCredentials.password = newPass;
+            showMessage("adminPasswordMessage", "Yönetici şifresi güncellendi.");
+        } catch (e) {
+            showMessage("adminPasswordMessage", "Şifre güncellenemedi.", true);
+        }
+    }
+
+    async function loadAllApartmentDebtsForBackup() {
+        allApartmentDebts = {};
+        for (const daire of daireler) {
+            const debtSnapshot = await getDocs(collection(db, 'apartments', daire, 'debts'));
+            allApartmentDebts[daire] = debtSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+        }
+    }
+
+    async function deleteAllDebts() {
+        if (confirm("TÜM BORÇLAR SİLİNECEK! Bu işlem geri alınamaz. Emin misiniz?")) {
+            const batch = writeBatch(db);
+            for (const daire of daireler) {
+                const debtSnapshot = await getDocs(collection(db, 'apartments', daire, 'debts'));
+                debtSnapshot.forEach(d => batch.delete(d.ref));
+            }
+            await batch.commit();
+            showMessage("adminTableMessage", "Tüm borçlar silindi.");
+            loadAdminTable();
+        }
+    }
+
     async function downloadAllDebtsPdf() { /* ... */ }
     async function downloadAllProfilesPdf() { /* ... */ }
     async function backupData() { /* ... */ }
     async function restoreData(event) { /* ... */ }
-    async function saveExpense() { /* ... */ }
-    async function loadAdminExpensesTable(month, year) { /* ... */ }
-    async function deleteExpense(expenseId) { /* ... */ }
-    async function toggleExpensesVisibility() { /* ... */ }
-    async function calculateAndShowBalance() { /* ... */ }
-    async function editUserProfileAsAdmin(daire) { /* ... */ }
-    async function deleteUserProfileAsAdmin(daire) { /* ... */ }
 
+    async function saveExpense() {
+        const dateInput = document.getElementById("expenseDateInput").value;
+        const name = document.getElementById("expenseNameInput").value.trim();
+        const amount = Number(document.getElementById("expenseAmountInput").value);
+        if (!dateInput || !name || !amount || amount <= 0) {
+            return showMessage("expenseMessage", "Lütfen tüm alanları doğru doldurun.", true);
+        }
+        const date = new Date(dateInput);
+        try {
+            await addDoc(collection(db, 'expenses'), {
+                tarih: dateInput,
+                harcamaAdi: name,
+                tutar: amount,
+                tarih_ay: aylar[date.getMonth()],
+                tarih_yil: date.getFullYear(),
+                timestamp: new Date()
+            });
+            showMessage("expenseMessage", "Gider kaydedildi.");
+            loadAdminExpensesTable(aylar[date.getMonth()], date.getFullYear());
+        } catch (e) {
+            showMessage("expenseMessage", "Gider kaydedilemedi.", true);
+        }
+    }
+
+    async function loadAdminExpensesTable(month, year) {
+        const table = document.getElementById("adminExpenseTable");
+        const publishButton = document.getElementById("publishButton");
+        table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th><th>İşlem</th></tr>';
+        let totalExpense = 0;
+
+        const pubSnap = await getDoc(doc(db, 'settings', 'publishedExpenses'));
+        const pubData = pubSnap.exists() ? pubSnap.data() : {};
+        const isPublished = pubData.published && pubData.month === month && pubData.year === Number(year);
+        publishButton.textContent = isPublished ? 'Yayından Kaldır' : 'Yayınla';
+
+        const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
+        const expensesSnapshot = await getDocs(q);
+        if (expensesSnapshot.empty) {
+            table.innerHTML += '<tr><td colspan="4">Gider kaydı yok.</td></tr>';
+        } else {
+            let rowsHtml = '';
+            expensesSnapshot.forEach(d => {
+                const expense = d.data();
+                rowsHtml += `<tr><td>${expense.tarih}</td><td>${expense.harcamaAdi}</td><td>${expense.tutar} TL</td>
+                             <td><button class="delete-btn" onclick="deleteExpense('${d.id}')">Sil</button></td></tr>`;
+                totalExpense += Number(expense.tutar);
+            });
+            table.innerHTML += rowsHtml;
+        }
+        document.getElementById("adminExpenseTotals").textContent = `Toplam Gider: ${totalExpense} TL`;
+    }
+    
+    async function deleteExpense(expenseId) {
+        if (confirm("Gider silinecek, emin misiniz?")) {
+            try {
+                await deleteDoc(doc(db, 'expenses', expenseId));
+                showMessage("expenseMessage", "Gider silindi.");
+                loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
+            } catch (e) {
+                showMessage("expenseMessage", "Gider silinemedi.", true);
+            }
+        }
+    }
+
+    async function toggleExpensesVisibility() {
+        const month = document.getElementById('expenseMonthFilter').value;
+        const year = Number(document.getElementById('expenseYearFilter').value);
+        const pubRef = doc(db, 'settings', 'publishedExpenses');
+        const pubSnap = await getDoc(pubRef);
+        const pubData = pubSnap.exists() ? pubSnap.data() : {};
+        const isPublished = pubData.published && pubData.month === month && pubData.year === year;
+
+        try {
+            if (isPublished) {
+                await setDoc(pubRef, { published: false, month: null, year: null });
+                showMessage("expenseMessage", "Giderler yayından kaldırıldı.");
+            } else {
+                await setDoc(pubRef, { published: true, month, year });
+                showMessage("expenseMessage", "Giderler yayınlandı.");
+            }
+            loadAdminExpensesTable(month, year);
+        } catch (e) {
+            showMessage("expenseMessage", "İşlem başarısız.", true);
+        }
+    }
+
+    async function calculateAndShowBalance() {
+        let totalIncome = 0;
+        let totalExpenses = 0;
+
+        const allDebtsQuery = query(collection(db, 'apartments'), where('odendi', '==', true));
+        // Bu sorgu çalışmaz, alt koleksiyonlarda sorgu bu şekilde yapılamaz.
+        // Tüm daireleri tek tek gezmek gerekiyor.
+        for (const daire of daireler) {
+            const q = query(collection(db, 'apartments', daire, 'debts'), where("odendi", "==", true));
+            const paidDebts = await getDocs(q);
+            paidDebts.forEach(d => totalIncome += Number(d.data().tutar));
+        }
+
+        const allExpenses = await getDocs(collection(db, 'expenses'));
+        allExpenses.forEach(d => totalExpenses += Number(d.data().tutar));
+        
+        const balance = totalIncome - totalExpenses;
+        document.getElementById("totalIncome").textContent = `${totalIncome.toFixed(2)} TL`;
+        document.getElementById("totalExpense").textContent = `${totalExpenses.toFixed(2)} TL`;
+        document.getElementById("remainingBalance").textContent = `${balance.toFixed(2)} TL`;
+        document.getElementById("remainingBalance").style.color = balance < 0 ? 'var(--danger-color)' : 'var(--success-color)';
+    }
+
+    // --- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tüm fonksiyonları global scope'a taşı ---
+    window.login = login;
+    window.logout = logout;
+    window.changeUserPassword = changeUserPassword;
+    window.loadUserProfile = loadUserProfile;
+    window.saveUserProfile = saveUserProfile;
+    window.loadUserTable = loadUserTable;
+    window.loadUserExpensesTable = loadUserExpensesTable;
+    window.checkProfileAndToggleExpensesButton = checkProfileAndToggleExpensesButton;
+    window.toggleSection = toggleSection;
+    window.loadAdminTable = loadAdminTable;
     window.markPaid = markPaid;
     window.ekleBorc = ekleBorc;
     window.silBorc = silBorc;
     window.editDebt = editDebt;
+    window.deleteAllDebts = deleteAllDebts;
     window.updateAidatTutari = updateAidatTutari;
+    window.downloadAllDebtsPdf = downloadAllDebtsPdf;
+    window.editUserProfileAsAdmin = editUserProfileAsAdmin;
+    window.deleteUserProfileAsAdmin = deleteUserProfileAsAdmin;
+    window.downloadAllProfilesPdf = downloadAllProfilesPdf;
     window.sifreAyarla = sifreAyarla;
     window.resetAllPasswords = resetAllPasswords;
     window.setAdminPassword = setAdminPassword;
-    window.deleteAllDebts = deleteAllDebts;
-    window.downloadAllDebtsPdf = downloadAllDebtsPdf;
-    window.downloadAllProfilesPdf = downloadAllProfilesPdf;
-    window.backupData = backupData;
-    window.restoreData = restoreData;
     window.saveExpense = saveExpense;
     window.loadAdminExpensesTable = loadAdminExpensesTable;
     window.deleteExpense = deleteExpense;
     window.toggleExpensesVisibility = toggleExpensesVisibility;
     window.calculateAndShowBalance = calculateAndShowBalance;
-    window.editUserProfileAsAdmin = editUserProfileAsAdmin;
-    window.deleteUserProfileAsAdmin = deleteUserProfileAsAdmin;
-
-
+    window.backupData = backupData;
+    window.restoreData = restoreData;
+    
     // --- Uygulama Başlangıcı ---
     loadAuthDataFromFirebase();
   </script>
