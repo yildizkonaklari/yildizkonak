@@ -133,7 +133,7 @@
       border-radius: 6px;
     }
     .collapsible-content.active {
-      max-height: 1000px; /* Büyük değer, içeriğe göre ayarlanabilir */
+      max-height: 1000px;
       padding: 18px;
     }
     .collapsible-header:after {
@@ -218,6 +218,13 @@
         max-height: 1500px;
         padding: 15px;
         border: 1px solid #eee;
+    }
+    .admin-table-container {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 15px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
     }
   </style>
 </head>
@@ -353,13 +360,29 @@
       <div id="debtListSection" class="collapsible-content">
         <select id="flatSelect" onchange="loadAdminTable()"></select>
         <div id="userInfoDisplay" class="user-profile-display hidden"></div>
+        
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <select id="debtMonthFilter" style="width: 50%;"></select>
+            <select id="debtYearFilter" style="width: 50%;"></select>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button onclick="applyAdminDebtFilter()">Filtrele</button>
+            <button onclick="loadAdminTable()" class="edit-btn" style="color: white !important;">Filtreyi Temizle</button>
+        </div>
+        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
+
         <button class="download-btn" onclick="downloadAllProfilesPdf()" style="margin-top: 20px;">Tüm Profil Bilgilerini İndir</button>
         <button class="download-btn" onclick="downloadAllDebtsPdf()">Tüm Borçları PDF Olarak İndir</button>
-        <div class="table-responsive">
-          <table id="adminTable">
-            <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
-          </table>
+        
+        <div class="admin-table-container">
+            <div class="table-responsive">
+              <table id="adminTable">
+                <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+              </table>
+            </div>
         </div>
+
         <div class="totals" id="borcToplam"></div>
         <div id="adminTableMessage" class="message hidden"></div>
       </div>
@@ -455,21 +478,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Fonksiyonları global alana taşıma
-    window.db = db;
-    window.collection = collection;
-    window.getDocs = getDocs;
-    window.doc = doc;
-    window.setDoc = setDoc;
-    window.addDoc = addDoc;
-    window.deleteDoc = deleteDoc;
-    window.updateDoc = updateDoc;
-    window.getDoc = getDoc;
-    window.query = query;
-    window.where = where;
-    window.writeBatch = writeBatch;
-    window.deleteField = deleteField;
-
     // Global değişkenler
     const defaultAidat = 2000;
     const defaultPassword = "1256";
@@ -524,6 +532,23 @@
       yearSelect.value = currentYear;
     }
 
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
+    function fillAdminDebtFilters() {
+      const monthSelect = document.getElementById('debtMonthFilter');
+      const yearSelect = document.getElementById('debtYearFilter');
+      monthSelect.innerHTML = aylar.map((ay) => `<option value="${ay}">${ay}</option>`).join('');
+      
+      const currentYear = new Date().getFullYear();
+      let yearsHtml = '';
+      for(let i = currentYear - 2; i <= currentYear + 1; i++) {
+        yearsHtml += `<option value="${i}">${i}</option>`;
+      }
+      yearSelect.innerHTML = yearsHtml;
+      monthSelect.value = aylar[new Date().getMonth()];
+      yearSelect.value = currentYear;
+    }
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
+
     // --- Veri Yükleme ve Başlangıç ---
     async function loadAuthDataFromFirebase() {
         const loginButton = document.getElementById("loginButton");
@@ -573,9 +598,20 @@
         document.getElementById("adminPanel").classList.remove("hidden");
         fillFlatSelects();
         fillExpenseFilters();
+        fillAdminDebtFilters(); // YENİ EKLENDİ
         loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
         await loadAllApartmentDebtsForBackup(); 
-        loadAdminTable();
+        
+        await loadAdminTable(); 
+        
+        const debtSectionContent = document.getElementById('debtListSection');
+        const debtSectionHeader = document.querySelector("[onclick*='debtListSection']");
+        if (!debtSectionContent.classList.contains('active')) {
+            debtSectionContent.classList.add('active');
+            debtSectionHeader.classList.add('active');
+            debtSectionContent.style.maxHeight = debtSectionContent.scrollHeight + "px";
+        }
+
         return;
       }
 
@@ -700,11 +736,9 @@
       try {
         const debtSnapshot = await getDocs(collection(db, 'apartments', username, 'debts'));
         
-        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ: Tarih filtresi için mevcut tarihi al
         const today = new Date();
         const currentYear = today.getFullYear();
         const currentMonthIndex = today.getMonth();
-        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
 
         if (debtSnapshot.empty) {
             table.innerHTML += '<tr><td colspan="3">Borcunuz bulunmamaktadır.</td></tr>';
@@ -716,23 +750,17 @@
         const debts = [];
         debtSnapshot.forEach(doc => debts.push(doc.data()));
         
-        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ: Borçları tarihe göre filtrele
         const filteredDebts = debts.filter(entry => {
             const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
-            if (!debtMonthStr || !debtYearStr) return false; // Hatalı veriyi atla
+            if (!debtMonthStr || !debtYearStr) return false;
 
             const debtYear = parseInt(debtYearStr, 10);
             const debtMonthIndex = aylar.indexOf(debtMonthStr);
 
-            if (debtYear < currentYear) {
-                return true; // Geçmiş yılların borçlarını her zaman göster
-            }
-            if (debtYear === currentYear && debtMonthIndex <= currentMonthIndex) {
-                return true; // Bu yılın geçmiş veya mevcut aylarını göster
-            }
-            return false; // Gelecek ayların borçlarını gösterme
+            if (debtYear < currentYear) return true;
+            if (debtYear === currentYear && debtMonthIndex <= currentMonthIndex) return true;
+            return false;
         });
-        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
 
         if (filteredDebts.length === 0) {
              table.innerHTML += '<tr><td colspan="3">Görüntülenecek borcunuz bulunmamaktadır.</td></tr>';
@@ -749,7 +777,6 @@
         });
 
         let tableContent = '';
-        // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Filtrelenmiş borçlar üzerinden döngü kur
         filteredDebts.forEach(entry => {
           const statusText = entry.odendi ? "Ödendi" : "Bekliyor";
           const rowClass = entry.odendi ? "" : "unpaid-debt";
@@ -835,7 +862,8 @@
         });
     }
 
-    async function loadAdminTable() {
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ
+    async function loadAdminTable(filter = false) {
       const daire = document.getElementById("flatSelect").value;
       const table = document.getElementById("adminTable");
       const userInfoDisplay = document.getElementById("userInfoDisplay");
@@ -853,7 +881,19 @@
             </div>`;
         userInfoDisplay.classList.remove("hidden");
 
-        const debtSnapshot = await getDocs(collection(db, 'apartments', daire, 'debts'));
+        const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
+        let q;
+
+        if (filter) {
+            const month = document.getElementById('debtMonthFilter').value;
+            const year = document.getElementById('debtYearFilter').value;
+            const ayFilter = `${month} ${year}`;
+            q = query(debtsCollectionRef, where("ay", "==", ayFilter));
+        } else {
+            q = query(debtsCollectionRef);
+        }
+
+        const debtSnapshot = await getDocs(q);
         if (debtSnapshot.empty) {
             table.innerHTML += '<tr><td colspan="5">Bu daire için borç bulunmamaktadır.</td></tr>';
             document.getElementById("borcToplam").textContent = `Toplam: 0 TL | Ödenen: 0 TL | Kalan: 0 TL`;
@@ -882,6 +922,11 @@
         showMessage("adminTableMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
       }
     }
+
+    function applyAdminDebtFilter() {
+        loadAdminTable(true);
+    }
+    // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ
     
     async function editUserProfileAsAdmin(daire) {
         const flatDocRef = doc(db, 'apartments', daire);
@@ -1180,9 +1225,6 @@
         let totalIncome = 0;
         let totalExpenses = 0;
 
-        const allDebtsQuery = query(collection(db, 'apartments'), where('odendi', '==', true));
-        // Bu sorgu çalışmaz, alt koleksiyonlarda sorgu bu şekilde yapılamaz.
-        // Tüm daireleri tek tek gezmek gerekiyor.
         for (const daire of daireler) {
             const q = query(collection(db, 'apartments', daire, 'debts'), where("odendi", "==", true));
             const paidDebts = await getDocs(q);
@@ -1199,7 +1241,6 @@
         document.getElementById("remainingBalance").style.color = balance < 0 ? 'var(--danger-color)' : 'var(--success-color)';
     }
 
-    // --- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tüm fonksiyonları global scope'a taşı ---
     window.login = login;
     window.logout = logout;
     window.changeUserPassword = changeUserPassword;
@@ -1230,6 +1271,7 @@
     window.calculateAndShowBalance = calculateAndShowBalance;
     window.backupData = backupData;
     window.restoreData = restoreData;
+    window.applyAdminDebtFilter = applyAdminDebtFilter; // YENİ EKLENDİ
     
     // --- Uygulama Başlangıcı ---
     loadAuthDataFromFirebase();
