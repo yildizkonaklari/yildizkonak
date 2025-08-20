@@ -36,7 +36,7 @@
       max-width: 900px;
       margin: auto;
       background: var(--container-bg);
-      padding: 5px;
+      padding: 30px;
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
@@ -82,6 +82,10 @@
     th {
       background-color: #dbe9f4;
       font-weight: bold;
+    }
+    td:first-child {
+        text-align: left;
+        padding-left: 10px;
     }
     .totals {
       margin-top: 20px;
@@ -158,7 +162,7 @@
       margin-top: 10px;
     }
     .table-responsive {
-      overflow-y: auto;
+      overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
     .publish-btn {
@@ -168,8 +172,6 @@
     .publish-btn:hover {
       background-color: var(--publish-hover);
     }
-    
-    /* --- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ --- */
     .balance-summary-card {
         background-color: #fff;
         border: 1px solid var(--border-color);
@@ -192,7 +194,7 @@
         display: block;
     }
     .summary-amount {
-        font-size: 1.2em;
+        font-size: 1.8em;
         font-weight: bold;
         color: var(--danger-color);
     }
@@ -214,11 +216,9 @@
     }
     .collapsible-debt-details.active {
         max-height: 1500px;
-        padding: 5px;
+        padding: 15px;
         border: 1px solid #eee;
     }
-    /* --- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ --- */
-
   </style>
 </head>
 <body>
@@ -237,21 +237,17 @@
     <div id="userPanel" class="hidden">
       <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
       
-      <!-- Kullanıcı Menüsü -->
       <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
         <button id="showDebtBtn" style="flex-grow: 1;">Bakiye</button>
         <button id="showProfileBtn" style="flex-grow: 1;">Profilim</button>
         <button id="showExpensesBtn" style="flex-grow: 1;" class="hidden">Giderler</button>
       </div>
 
-      <!-- Profil bilgilerini tamamlaması için uyarı mesajı -->
       <div id="profileIncompleteMessage" class="error-message hidden"></div>
 
-      <!-- Borç Sayfası -->
       <div id="debtPage">
         <h4>Bakiyeniz</h4>
 
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BAŞLANGIÇ -->
         <div id="balanceSummary" class="balance-summary-card">
             <div>
                 <span class="summary-title">Ödenmemiş Toplam Bakiye</span>
@@ -262,13 +258,13 @@
 
         <div id="debtDetails" class="collapsible-debt-details">
             <div class="table-responsive">
+              <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tablo başlığı güncellendi -->
               <table id="userTable">
-                <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>
+                <tr><th>Açıklama</th><th>Tutar</th><th>Durum</th></tr>
               </table>
             </div>
             <div class="totals" id="userDebtTotals"></div>
         </div>
-        <!-- YENİ EKLENEN/DEĞİŞTİRİLEN KISIM BİTİŞ -->
         
         <div class="bank-info">
           <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
@@ -276,7 +272,6 @@
         </div>
       </div>
 
-      <!-- Profil Sayfası -->
       <div id="profilePage" class="hidden">
         <h4>Profil Bilgilerim</h4>
         <input type="text" id="nameInput" placeholder="Adınız">
@@ -287,7 +282,6 @@
         <div id="profileMessage" class="message hidden"></div>
       </div>
       
-      <!-- Giderler Sayfası -->
       <div id="expensesPage" class="hidden">
         <h4>Site Giderleri</h4>
         <div id="expenseNotPublishedMessage" class="message hidden"></div>
@@ -307,7 +301,6 @@
     </div>
 
     <div id="adminPanel" class="hidden">
-      <!-- Admin panel içeriği değişmediği için kısaltılmıştır -->
       <h3>Yönetici Paneli</h3>
 
       <div class="section-divider"></div>
@@ -360,23 +353,18 @@
       </button>
       <div id="debtListSection" class="collapsible-content">
         <select id="flatSelect" onchange="loadAdminTable()"></select>
-        <!-- Daire Sahibi Bilgileri Buraya Gelecek -->
         <div id="userInfoDisplay" class="user-profile-display hidden"></div>
-
         <button class="download-btn" onclick="downloadAllProfilesPdf()" style="margin-top: 20px;">Tüm Profil Bilgilerini İndir</button>
         <button class="download-btn" onclick="downloadAllDebtsPdf()">Tüm Borçları PDF Olarak İndir</button>
-        
         <div class="table-responsive">
           <table id="adminTable">
             <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
           </table>
         </div>
-        
         <div class="totals" id="borcToplam"></div>
         <div id="adminTableMessage" class="message hidden"></div>
       </div>
 
-      <!-- Giderler Bölümü -->
       <div class="section-divider"></div>
       <button class="collapsible-header" onclick="toggleSection('expenseSection')">
         Giderler
@@ -388,7 +376,6 @@
         <input type="number" id="expenseAmountInput" placeholder="Tutar (₺)">
         <button onclick="saveExpense()">Kaydet</button>
         <div id="expenseMessage" class="message hidden"></div>
-        
         <h4>Gider Listesi</h4>
         <div style="display: flex; gap: 10px; margin-top: 10px;">
           <select id="expenseMonthFilter" style="width: 50%;"></select>
@@ -404,7 +391,6 @@
         <div class="totals" id="adminExpenseTotals"></div>
       </div>
 
-      <!-- Bakiye Bölümü -->
       <div class="section-divider"></div>
       <button class="collapsible-header" onclick="toggleSection('balanceSection'); calculateAndShowBalance();">
         Bakiye Durumu
@@ -609,7 +595,6 @@
       document.getElementById("userNameDisplay").textContent = username;
       loggedInUsername = username;
       
-      // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Bakiye kartı tıklama olayı
       document.getElementById('balanceSummary').addEventListener('click', function() {
           this.classList.toggle('active');
           document.getElementById('debtDetails').classList.toggle('active');
@@ -712,7 +697,8 @@
       const unpaidTotalSpan = document.getElementById("userUnpaidTotal"); 
       unpaidTotalSpan.textContent = "Hesaplanıyor...";
       
-      table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th></tr>';
+      // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Tablo başlığı güncellendi
+      table.innerHTML = '<tr><th>Açıklama</th><th>Tutar</th><th>Durum</th></tr>';
       let totalPaid = 0;
       let totalUnpaid = 0;
 
@@ -720,7 +706,8 @@
         const debtSnapshot = await getDocs(collection(db, 'apartments', username, 'debts'));
 
         if (debtSnapshot.empty) {
-            table.innerHTML += '<tr><td colspan="4">Borcunuz bulunmamaktadır.</td></tr>';
+            // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Colspan güncellendi
+            table.innerHTML += '<tr><td colspan="3">Borcunuz bulunmamaktadır.</td></tr>';
             document.getElementById("userDebtTotals").textContent = `Ödenen: 0 TL | Ödenmemiş: 0 TL`;
             unpaidTotalSpan.textContent = `₺0,00`;
             return;
@@ -729,9 +716,6 @@
         const debts = [];
         debtSnapshot.forEach(doc => debts.push(doc.data()));
         
-        // Borçları tarihe göre sıralama (isteğe bağlı, daha iyi görünüm için)
-        // Bu kısım ay formatına göre (örn: "Ağustos 2025") basit bir sıralama yapar.
-        // Daha karmaşık sıralama gerekirse bu mantık geliştirilebilir.
         debts.sort((a, b) => {
             const [ayA, yilA] = a.ay.split(' ');
             const [ayB, yilB] = b.ay.split(' ');
@@ -743,7 +727,14 @@
         debts.forEach(entry => {
           const statusText = entry.odendi ? "Ödendi" : "Bekliyor";
           const rowClass = entry.odendi ? "" : "unpaid-debt";
-          tableContent += `<tr class="${rowClass}"><td>${entry.ay}</td><td>${entry.tip}</td><td>${entry.tutar} TL</td><td>${statusText}</td></tr>`;
+          const tipFormatted = entry.tip.charAt(0).toUpperCase() + entry.tip.slice(1);
+          
+          // YENİ EKLENEN/DEĞİŞTİRİLEN KISIM: Ay ve Tip birleştirildi
+          tableContent += `<tr class="${rowClass}">
+                            <td>${entry.ay} - ${tipFormatted}</td>
+                            <td>${entry.tutar} TL</td>
+                            <td>${statusText}</td>
+                           </tr>`;
 
           if (entry.odendi) totalPaid += Number(entry.tutar);
           else totalUnpaid += Number(entry.tutar);
@@ -751,7 +742,6 @@
         
         table.innerHTML += tableContent;
         
-        // Para birimi formatını (örn: ₺11.804,22) ayarla
         unpaidTotalSpan.textContent = `₺${totalUnpaid.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         document.getElementById("userDebtTotals").textContent = `Ödenen Toplam: ${totalPaid} TL | Ödenmeyen Toplam: ${totalUnpaid} TL`;
       } catch (error) {
@@ -809,7 +799,6 @@
 
     // --- Yönetici Paneli Fonksiyonları (değişiklik yapılmadı) ---
     // Bu bölümdeki fonksiyonlar önceki versiyon ile aynı olduğu için kısaltılmıştır.
-    // Tam kod dosyanın en üstündedir.
     function fillFlatSelects() {
         const selects = ["flatSelect", "borcKime", "sifreDaire"];
         selects.forEach(id => {
