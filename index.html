@@ -257,7 +257,7 @@
     </div>
 
     <div id="userPanel" class="hidden">
-      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span></h3>
+      <h3>Hoş Geldiniz, <span id="userNameDisplay"></span><span id="userFullNameDisplay" style="font-weight: normal;"></span></h3>
       
       <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
         <button id="showDebtBtn" style="flex-grow: 1;">Bakiye</button>
@@ -517,7 +517,7 @@
     let passwords = {}; 
     let allApartmentDebts = {}; 
     let loggedInUsername = null;
-    let publishedExpenseData = { published: false };
+    let publishedExpenseData = { published: false, month: null, year: null };
     const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
     const daireler = [];
@@ -596,7 +596,7 @@
             const publishedExpensesRef = doc(db, 'settings', 'publishedExpenses');
             const publishedExpensesSnap = await getDoc(publishedExpensesRef);
             if (publishedExpensesSnap.exists()) publishedExpenseData = publishedExpensesSnap.data();
-            else await setDoc(publishedExpensesRef, { published: false });
+            else await setDoc(publishedExpensesRef, { published: false, month: null, year: null });
 
             const batch = writeBatch(db);
             for (const daire of daireler) {
@@ -655,7 +655,10 @@
       document.getElementById("login").classList.add("hidden");
       document.getElementById("userPanel").classList.remove("hidden");
       
+      const userData = flatDocSnap.data();
       document.getElementById("userNameDisplay").textContent = username;
+      document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
+      
       loggedInUsername = username;
       
       document.getElementById('balanceSummary').addEventListener('click', function() {
@@ -701,8 +704,8 @@
         if (!loggedInUsername) return false;
         const userDocSnap = await getDoc(doc(db, 'apartments', loggedInUsername));
         if (userDocSnap.exists()) {
-            const { adi, soyadi, telefon } = userDocSnap.data();
-            return !!adi && !!soyadi && !!telefon;
+            const { telefon } = userDocSnap.data();
+            return !!telefon;
         }
         return false;
     }
@@ -719,7 +722,7 @@
             };
         } else {
             expensesBtn.classList.add('hidden');
-            warningMsg.textContent = "Giderleri görebilmek için lütfen profil bilgilerinizi (Ad, Soyad, Telefon) tamamlayın.";
+            warningMsg.textContent = "Giderleri görebilmek için lütfen profil sayfasından telefon numaranızı ekleyin.";
             warningMsg.classList.remove('hidden');
         }
     }
@@ -839,7 +842,7 @@
         const publishedExpensesSnap = await getDoc(doc(db, 'settings', 'publishedExpenses'));
         const pubData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false };
 
-        if (!pubData.published) {
+        if (!pubData.published || !pubData.month || !pubData.year) {
             tableContainer.classList.add('hidden');
             notPublishedMsg.textContent = "Yönetim tarafından yayınlanmış gider bulunmamaktadır.";
             notPublishedMsg.classList.remove('hidden');
@@ -854,26 +857,22 @@
         let totalExpense = 0;
 
         try {
-            const expensesSnapshot = await getDocs(collection(db, 'expenses'));
-            const allExpenses = [];
-            expensesSnapshot.forEach(doc => allExpenses.push(doc.data()));
+            const q = query(collection(db, 'expenses'), 
+              where("tarih_ay", "==", pubData.month),
+              where("tarih_yil", "==", Number(pubData.year))
+            );
+            const expensesSnapshot = await getDocs(q);
 
-            const today = new Date();
-            const visibleExpenses = allExpenses.filter(expense => {
-                const expenseDate = new Date(expense.tarih);
-                return expenseDate <= today;
-            });
-
-            if (visibleExpenses.length === 0) {
-                 table.innerHTML += '<tr><td colspan="3">Görüntülenecek gider kaydı bulunmamaktadır.</td></tr>';
+            if (expensesSnapshot.empty) {
+                table.innerHTML += `<tr><td colspan="3">${pubData.month} ${pubData.year} için gider kaydı bulunmamaktadır.</td></tr>`;
             } else {
-                 visibleExpenses.sort((a, b) => new Date(a.tarih) - new Date(b.tarih));
-                 let expensesHtml = '';
-                 visibleExpenses.forEach(expense => {
-                     expensesHtml += `<tr><td>${expense.tarih}</td><td>${expense.harcamaAdi}</td><td>${expense.tutar} TL</td></tr>`;
-                     totalExpense += Number(expense.tutar);
-                 });
-                 table.innerHTML += expensesHtml;
+                let expensesHtml = '';
+                expensesSnapshot.forEach(d => {
+                    const expense = d.data();
+                    expensesHtml += `<tr><td>${expense.tarih}</td><td>${expense.harcamaAdi}</td><td>${expense.tutar} TL</td></tr>`;
+                    totalExpense += Number(expense.tutar);
+                });
+                table.innerHTML += expensesHtml;
             }
             document.getElementById("userExpenseTotals").textContent = `Toplam Gider: ${totalExpense.toFixed(2)} TL`;
         } catch (error) {
@@ -1316,7 +1315,8 @@
 
         const pubSnap = await getDoc(doc(db, 'settings', 'publishedExpenses'));
         publishedExpenseData = pubSnap.exists() ? pubSnap.data() : { published: false };
-        publishButton.textContent = publishedExpenseData.published ? 'Giderleri Yayından Kaldır' : 'Giderleri Yayınla';
+        const isPublished = publishedExpenseData.published && publishedExpenseData.month === month && publishedExpenseData.year === Number(year);
+        publishButton.textContent = isPublished ? 'Yayından Kaldır' : 'Yayınla';
 
         const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
         const expensesSnapshot = await getDocs(q);
@@ -1348,12 +1348,22 @@
     }
 
     async function toggleExpensesVisibility() {
-        const newState = !publishedExpenseData.published;
+        const month = document.getElementById('expenseMonthFilter').value;
+        const year = Number(document.getElementById('expenseYearFilter').value);
+        const pubRef = doc(db, 'settings', 'publishedExpenses');
+        const pubSnap = await getDoc(pubRef);
+        const pubData = pubSnap.exists() ? pubSnap.data() : { published: false, month: null, year: null };
+        const isPublished = pubData.published && pubData.month === month && pubData.year === year;
+
         try {
-            await setDoc(doc(db, 'settings', 'publishedExpenses'), { published: newState });
-            publishedExpenseData.published = newState;
-            showMessage("expenseMessage", `Giderler başarıyla ${newState ? 'yayınlandı' : 'yayından kaldırıldı'}.`);
-            document.getElementById("publishButton").textContent = newState ? 'Giderleri Yayından Kaldır' : 'Giderleri Yayınla';
+            if (isPublished) {
+                await setDoc(pubRef, { published: false, month: null, year: null });
+                showMessage("expenseMessage", "Giderler yayından kaldırıldı.");
+            } else {
+                await setDoc(pubRef, { published: true, month, year });
+                showMessage("expenseMessage", "Giderler yayınlandı.");
+            }
+            loadAdminExpensesTable(month, year);
         } catch (e) {
             showMessage("expenseMessage", "İşlem başarısız.", true);
         }
