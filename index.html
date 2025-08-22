@@ -1169,7 +1169,41 @@
         await loadAllApartmentDebtsForBackup();
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        // PDF generation logic here...
+        
+        let yPos = 20;
+        doc.setFontSize(18);
+        doc.text("Ayvalık Yıldız Konakları - Tüm Borçlar", 105, yPos, { align: "center" });
+        yPos += 10;
+        doc.setFontSize(12);
+        doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, yPos, { align: "center" });
+        yPos += 20;
+
+        const tableData = [];
+        for (const daire of daireler) {
+            if (allApartmentDebts[daire] && allApartmentDebts[daire].length > 0) {
+                allApartmentDebts[daire].forEach(entry => {
+                    tableData.push([
+                        daire,
+                        entry.ay,
+                        entry.tip,
+                        `${entry.tutar} TL`,
+                        entry.odendi ? "Ödendi" : "Bekliyor"
+                    ]);
+                });
+            } else {
+                tableData.push([daire, "Borç Yok", "-", "-", "-"]);
+            }
+        }
+
+        doc.autoTable({
+            startY: yPos,
+            head: [['Daire', 'Ay', 'Tip', 'Tutar', 'Durum']],
+            body: tableData,
+            theme: 'grid',
+            styles: { font: 'helvetica', fontSize: 8 }
+        });
+
+        doc.save(`Tum_Borclar_${new Date().toLocaleDateString('tr-TR')}.pdf`);
         showMessage("adminTableMessage", "PDF indirildi.");
     }
     
@@ -1205,6 +1239,7 @@
             head: [['Daire', 'Adı Soyadı', 'Telefon', 'E-posta']],
             body: profileData,
             theme: 'grid',
+            styles: { font: 'helvetica', fontSize: 10, cellPadding: 3 }
         });
         
         const filename = `Daire_Profilleri_${new Date().toLocaleDateString('tr-TR')}.pdf`;
