@@ -7,6 +7,7 @@
   <meta name="robots" content="noindex, nofollow">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --primary-color: #014f86;
@@ -142,7 +143,7 @@
       border-radius: 6px;
     }
     .collapsible-content.active {
-      max-height: 1200px; /* Increased max-height */
+      max-height: 1200px; 
       padding: 18px;
     }
     .collapsible-header:after {
@@ -243,6 +244,24 @@
         margin: 8px 0;
         text-align: center;
     }
+    .refresh-icon {
+        margin-left: auto;
+        padding: 0 10px;
+        font-size: 24px;
+        line-height: 1;
+        font-weight: bold;
+        color: var(--primary-color);
+        cursor: pointer;
+        border-radius: 50%;
+        transition: transform 0.5s ease, background-color 0.2s;
+    }
+    .refresh-icon:hover {
+        background-color: rgba(0,0,0,0.08);
+        transform: rotate(360deg);
+    }
+    .collapsible-header > span:first-child {
+        flex-grow: 1;
+    }
   </style>
 </head>
 <body>
@@ -322,7 +341,7 @@
 
       <div class="section-divider"></div>
       <button id="logoutBtnUser">Çıkış Yap</button>
-      <div id="userPasswordMessage" class="message hidden"></div>
+      <div id="userMessage" class="message hidden"></div>
     </div>
 
     <div id="adminPanel" class="hidden">
@@ -356,15 +375,6 @@
 
       <div class="section-divider"></div>
       <button class="collapsible-header">
-        Daire ve Yönetici Şifre Ayarla
-      </button>
-      <div id="passwordSection" class="collapsible-content">
-        <h5>Daire Şifresi Ayarla</h5>
-        <p style="font-size: 0.9em; text-align: center;">Daire ve yönetici şifreleri artık Firebase Authentication konsolundan yönetilmektedir.</p>
-      </div>
-
-      <div class="section-divider"></div>
-      <button class="collapsible-header">
         Daire Borç Listesi
       </button>
       <div id="debtListSection" class="collapsible-content">
@@ -380,22 +390,32 @@
             <button id="clearDebtFilterBtn" class="edit-btn" style="color: white !important;">Filtreyi Temizle</button>
         </div>
         
-        <div class="admin-table-container">
-            <div class="table-responsive">
-              <table id="adminTable">
-                <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
-              </table>
+        <div id="allApartmentsSummary" class="hidden">
+            <h4 id="summaryChartTitle"></h4>
+            <div style="width: 100%; max-width: 400px; margin: auto;">
+                <canvas id="paymentStatusChart"></canvas>
             </div>
+            <div id="summaryTotals" class="totals"></div>
         </div>
 
-        <div class="totals" id="borcToplam"></div>
+        <div id="singleApartmentView">
+            <div class="admin-table-container">
+                <div class="table-responsive">
+                  <table id="adminTable">
+                    <tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+                  </table>
+                </div>
+            </div>
+            <div class="totals" id="borcToplam"></div>
+        </div>
+        
         <div id="adminTableMessage" class="message hidden"></div>
         
         <div class="section-divider"></div>
         <h4>Raporlar ve Toplu İşlemler</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
             <button id="downloadProfilesBtn" class="download-btn" style="flex-grow: 1;">Tüm Profilleri İndir (PDF)</button>
-            <button id="downloadSelectedDebtsBtn" class="download-btn" style="flex-grow: 1;">Seçilen Borçları İndir (PDF)</button>
+            <button id="downloadSelectedDebtsBtn" class="download-btn" style="flex-grow: 1;">Aylık Rapor İndir (PDF)</button>
         </div>
         <div style="margin-top: 15px;">
             <h5>Toplu Profil Güncelleme</h5>
@@ -438,7 +458,8 @@
 
       <div class="section-divider"></div>
       <button id="balanceSectionHeader" class="collapsible-header">
-        Bakiye Durumu
+        <span>Bakiye Durumu</span>
+        <span id="refreshBalanceBtn" class="refresh-icon" title="Bakiyeyi Yenile">&#x21bb;</span>
       </button>
       <div id="balanceSection" class="collapsible-content">
         <h4>Genel Bakiye Durumu</h4>
@@ -489,21 +510,29 @@
         const auth = getAuth(app);
 
         let loggedInUsername = null;
-        let publishedExpenseData = { published: false, month: null, year: null };
-        let currentlyDisplayedAdminDebts = [];
-        let isAdminDebtFilterActive = false;
+        let paymentStatusChart = null;
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         const daireler = [];
         ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
           for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`);
         });
 
+        function handleFirebaseError(error, elementId, userMessage) {
+            console.error(`${userMessage}:`, error);
+            let detailedMessage = `Bir hata oluştu: ${userMessage}. Lütfen tekrar deneyin.`;
+            if (error.code === 'permission-denied') {
+                detailedMessage = "Veritabanı erişim yetkiniz yok. Lütfen Firebase güvenlik kurallarınızı kontrol edin.";
+            }
+            showMessage(elementId, detailedMessage, true);
+        }
+        
         function showMessage(elementId, message, isError = false) {
             const element = document.getElementById(elementId);
+            if (!element) return;
             element.textContent = message;
             element.classList.remove('hidden');
             element.className = isError ? 'error-message' : 'message';
-            setTimeout(() => element.classList.add('hidden'), 3000);
+            setTimeout(() => element.classList.add('hidden'), 4000);
         }
         
         function showPage(pageId) {
@@ -564,35 +593,49 @@
         }
         
         async function isProfileComplete() {
-            if (!loggedInUsername) return false;
-            const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
-            if (userDocSnap.exists()) {
-                const { telefon } = userDocSnap.data();
-                return !!telefon;
+            try {
+                if (!loggedInUsername) return false;
+                const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
+                if (userDocSnap.exists()) {
+                    const { telefon } = userDocSnap.data();
+                    return !!telefon;
+                }
+            } catch (error) {
+                console.error("Profil durumu kontrol edilirken hata:", error);
             }
             return false;
         }
         
         async function checkProfileAndToggleExpensesButton() {
-            const expensesBtn = document.getElementById('showExpensesBtn');
-            const warningMsg = document.getElementById('profileIncompleteMessage');
-            if (await isProfileComplete()) {
-                expensesBtn.classList.remove('hidden');
-                warningMsg.classList.add('hidden');
-            } else {
-                expensesBtn.classList.add('hidden');
-                warningMsg.textContent = "Giderleri görebilmek için lütfen profil sayfasından telefon numaranızı ekleyin.";
-                warningMsg.classList.remove('hidden');
+            try {
+                const expensesBtn = document.getElementById('showExpensesBtn');
+                const warningMsg = document.getElementById('profileIncompleteMessage');
+                if (await isProfileComplete()) {
+                    expensesBtn.classList.remove('hidden');
+                    warningMsg.classList.add('hidden');
+                } else {
+                    expensesBtn.classList.add('hidden');
+                    warningMsg.textContent = "Giderleri görebilmek için lütfen profil sayfasından telefon numaranızı ekleyin.";
+                    warningMsg.classList.remove('hidden');
+                }
+            } catch (error) {
+                 console.error("Giderler butonu kontrol edilirken hata:", error);
+                 showMessage('userMessage', 'Giderler durumu kontrol edilemedi.', true);
             }
         }
 
         async function loadUserProfile() {
-            const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
-            if (userDocSnap.exists()) {
-                const { adi = '', soyadi = '', telefon = '', mail = '' } = userDocSnap.data();
-                document.getElementById('profileNameDisplay').textContent = `${adi} ${soyadi}`;
-                document.getElementById('phoneInput').value = telefon;
-                document.getElementById('mailInput').value = mail;
+            try {
+                const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
+                if (userDocSnap.exists()) {
+                    const { adi = '', soyadi = '', telefon = '', mail = '' } = userDocSnap.data();
+                    document.getElementById('profileNameDisplay').textContent = `${adi} ${soyadi}`;
+                    document.getElementById('phoneInput').value = telefon;
+                    document.getElementById('mailInput').value = mail;
+                }
+            } catch (error) {
+                console.error("Kullanıcı profili yüklenirken hata:", error);
+                showMessage("profileMessage", "Profil yüklenirken bir hata oluştu.", true);
             }
         }
 
@@ -641,13 +684,15 @@
             debtSnapshot.forEach(doc => debts.push(doc.data()));
             
             const filteredDebts = debts.filter(entry => {
-                const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
-                if (!debtMonthStr || !debtYearStr) return false;
-                const debtYear = parseInt(debtYearStr, 10);
-                const debtMonthIndex = aylar.indexOf(debtMonthStr);
-                if (debtYear < currentYear) return true;
-                if (debtYear === currentYear && debtMonthIndex <= currentMonthIndex) return true;
-                return false;
+                try {
+                    const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
+                    if (!debtMonthStr || !debtYearStr) return false;
+                    const debtYear = parseInt(debtYearStr, 10);
+                    const debtMonthIndex = aylar.indexOf(debtMonthStr);
+                    if (debtYear < currentYear) return true;
+                    if (debtYear === currentYear && debtMonthIndex <= currentMonthIndex) return true;
+                    return false;
+                } catch { return false; }
             });
 
             if (filteredDebts.length === 0) {
@@ -685,9 +730,8 @@
             unpaidTotalSpan.textContent = `₺${totalUnpaid.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             document.getElementById("userDebtTotals").textContent = `Ödenen Toplam: ${totalPaid} TL | Ödenmeyen Toplam: ${totalUnpaid} TL`;
           } catch (error) {
-            console.error("Kullanıcı borçları yüklenirken hata:", error);
-            showMessage("loginMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
-            unpaidTotalSpan.textContent = "Hata oluştu";
+            handleFirebaseError(error, 'userMessage', 'Kullanıcı borçları yüklenirken hata');
+            unpaidTotalSpan.textContent = "Yetki Hatası";
           }
         }
 
@@ -695,24 +739,24 @@
             const tableContainer = document.getElementById("expenseTableContainer");
             const notPublishedMsg = document.getElementById("expenseNotPublishedMessage");
             
-            const publishedExpensesSnap = await getDocFromFirestore(doc(db, 'settings', 'publishedExpenses'));
-            const pubData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false };
-
-            if (!pubData.published || !pubData.month || !pubData.year) {
-                tableContainer.classList.add('hidden');
-                notPublishedMsg.textContent = "Yönetim tarafından yayınlanmış gider bulunmamaktadır.";
-                notPublishedMsg.classList.remove('hidden');
-                return;
-            } 
-            
-            tableContainer.classList.remove('hidden');
-            notPublishedMsg.classList.add('hidden');
-
-            const table = document.getElementById("userExpenseTable");
-            table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th></tr>';
-            let totalExpense = 0;
-
             try {
+                const publishedExpensesSnap = await getDocFromFirestore(doc(db, 'settings', 'publishedExpenses'));
+                const pubData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false };
+
+                if (!pubData.published || !pubData.month || !pubData.year) {
+                    tableContainer.classList.add('hidden');
+                    notPublishedMsg.textContent = "Yönetim tarafından yayınlanmış gider bulunmamaktadır.";
+                    notPublishedMsg.classList.remove('hidden');
+                    return;
+                } 
+                
+                tableContainer.classList.remove('hidden');
+                notPublishedMsg.classList.add('hidden');
+
+                const table = document.getElementById("userExpenseTable");
+                table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th></tr>';
+                let totalExpense = 0;
+
                 const q = query(collection(db, 'expenses'), 
                   where("tarih_ay", "==", pubData.month),
                   where("tarih_yil", "==", Number(pubData.year))
@@ -732,31 +776,40 @@
                 }
                 document.getElementById("userExpenseTotals").textContent = `Toplam Gider: ${totalExpense.toFixed(2)} TL`;
             } catch (error) {
-                console.error("Kullanıcı giderleri yüklenirken hata:", error);
-                showMessage("userPasswordMessage", "Gider listesi yüklenirken bir sorun oluştu.", true);
+                handleFirebaseError(error, 'userMessage', 'Kullanıcı giderleri yüklenirken hata');
             }
         }
 
         function fillFlatSelects() {
-            const selects = ["flatSelect", "borcKime"];
-            selects.forEach(id => {
-                const select = document.getElementById(id);
-                select.innerHTML = "";
-                if (id === "borcKime") {
-                    select.innerHTML += `<option value="all_apartments">Tüm Daireler</option>`;
-                }
-                daireler.forEach(daire => select.innerHTML += `<option value="${daire}">${daire}</option>`);
-            });
+            const select = document.getElementById("flatSelect");
+            select.innerHTML = '<option value="all_apartments">Tüm Daireler</option>';
+            daireler.forEach(daire => select.innerHTML += `<option value="${daire}">${daire}</option>`);
+
+            const borcKimeSelect = document.getElementById("borcKime");
+            borcKimeSelect.innerHTML = '<option value="all_apartments">Tüm Daireler</option>';
+            daireler.forEach(daire => borcKimeSelect.innerHTML += `<option value="${daire}">${daire}</option>`);
+        }
+
+        async function loadAdminView() {
+            const selectedDaire = document.getElementById("flatSelect").value;
+            if (selectedDaire === 'all_apartments') {
+                await loadAllApartmentsSummary(true);
+            } else {
+                await loadAdminTable(false);
+            }
         }
 
         async function loadAdminTable(filter = false) {
           const daire = document.getElementById("flatSelect").value;
           if (!daire) return;
+
+          document.getElementById('allApartmentsSummary').classList.add('hidden');
+          document.getElementById('singleApartmentView').classList.remove('hidden');
+          document.getElementById('userInfoDisplay').classList.remove('hidden');
+
           const table = document.getElementById("adminTable");
           const userInfoDisplay = document.getElementById("userInfoDisplay");
           table.innerHTML = '<tr><th>Ay</th><th>Tip</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>';
-          isAdminDebtFilterActive = filter; 
-          currentlyDisplayedAdminDebts = []; 
           
           try {
             const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daire));
@@ -794,7 +847,6 @@
             let rowsHtml = '';
             debtSnapshot.forEach(doc => {
               const entry = doc.data();
-              currentlyDisplayedAdminDebts.push(entry); 
               toplam += Number(entry.tutar);
               if (entry.odendi) odenen += Number(entry.tutar);
               rowsHtml += `<tr>
@@ -809,9 +861,75 @@
             table.innerHTML += rowsHtml;
             document.getElementById("borcToplam").textContent = `Toplam: ${toplam} TL | Ödenen: ${odenen} TL | Kalan: ${toplam - odenen} TL`;
           } catch (error) {
-            console.error("Yönetici borçları yüklenirken hata:", error);
-            showMessage("adminTableMessage", "Borçlar yüklenirken bir sorun oluştu.", true);
+            handleFirebaseError(error, 'adminTableMessage', 'Yönetici borçları yüklenirken hata');
           }
+        }
+
+        async function loadAllApartmentsSummary() {
+            document.getElementById('singleApartmentView').classList.add('hidden');
+            document.getElementById('userInfoDisplay').classList.add('hidden');
+            document.getElementById('allApartmentsSummary').classList.remove('hidden');
+
+            const month = document.getElementById('debtMonthFilter').value;
+            const year = document.getElementById('debtYearFilter').value;
+            const ayFilter = `${month} ${year}`;
+            
+            document.getElementById('summaryChartTitle').textContent = `${ayFilter} Ödeme Durumu`;
+
+            let paidCount = 0;
+            let unpaidCount = 0;
+            let noRecordCount = 0;
+
+            try {
+                for (const daire of daireler) {
+                    const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", ayFilter));
+                    const debtSnapshot = await getDocs(q);
+                    if (debtSnapshot.empty) {
+                        noRecordCount++;
+                    } else {
+                        debtSnapshot.forEach(doc => {
+                            if (doc.data().odendi) {
+                                paidCount++;
+                            } else {
+                                unpaidCount++;
+                            }
+                        });
+                    }
+                }
+
+                document.getElementById('summaryTotals').textContent = `Ödeyen: ${paidCount} | Ödemeyen: ${unpaidCount} | Kayıt Yok: ${noRecordCount}`;
+
+                const ctx = document.getElementById('paymentStatusChart').getContext('2d');
+                if (paymentStatusChart) {
+                    paymentStatusChart.destroy();
+                }
+                paymentStatusChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Ödeyen', 'Ödemeyen', 'Kayıt Yok'],
+                        datasets: [{
+                            data: [paidCount, unpaidCount, noRecordCount],
+                            backgroundColor: ['var(--success-color)', 'var(--danger-color)', 'var(--border-color)'],
+                            borderColor: 'var(--container-bg)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: `${ayFilter} Genel Ödeme Durumu`
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                handleFirebaseError(error, 'adminTableMessage', 'Genel özet yüklenirken hata');
+            }
         }
 
         async function editUserProfileAsAdmin(daire) {
@@ -859,7 +977,7 @@
                 try {
                     await updateDoc(doc(db, 'apartments', daire, 'debts', debtId), { odendi: true });
                     showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
-                    loadAdminTable(isAdminDebtFilterActive);
+                    loadAdminTable(document.getElementById('flatSelect').value !== 'all_apartments' && document.getElementById('debtMonthFilter').value !== '');
                 } catch (e) {
                     showMessage("adminTableMessage", "İşlem başarısız.", true);
                 }
@@ -892,7 +1010,7 @@
                 if (successCount > 0) {
                     await batch.commit();
                     showMessage("addDebtMessage", `${successCount} daireye borç eklendi.`);
-                    loadAdminTable();
+                    loadAdminView();
                 } else {
                     showMessage("addDebtMessage", "Seçili daire(ler) için bu borç zaten mevcut.", true);
                 }
@@ -906,7 +1024,7 @@
                 try {
                     await deleteDoc(doc(db, 'apartments', daire, 'debts', debtId));
                     showMessage("adminTableMessage", "Borç silindi.");
-                    loadAdminTable(isAdminDebtFilterActive);
+                    loadAdminView();
                 } catch (e) {
                     showMessage("adminTableMessage", "Borç silinemedi.", true);
                 }
@@ -928,7 +1046,7 @@
             try {
                 await updateDoc(doc(db, 'apartments', daire, 'debts', debtId), { ay: newAy, tutar: Number(newTutar), tip: newTip });
                 showMessage("adminTableMessage", "Borç güncellendi.");
-                loadAdminTable(isAdminDebtFilterActive);
+                loadAdminView();
             } catch (e) {
                 showMessage("adminTableMessage", "Borç güncellenemedi.", true);
             }
@@ -954,7 +1072,7 @@
                 }
                 if (addedCount > 0) await batch.commit();
                 showMessage("aidatMessage", `Aidat güncellendi. ${addedCount} daireye ${currentMonth} borcu eklendi.`);
-                loadAdminTable();
+                loadAdminView();
             } catch (e) {
                 showMessage("aidatMessage", "Aidat güncellenemedi.", true);
             }
@@ -969,43 +1087,47 @@
                 }
                 await batch.commit();
                 showMessage("adminTableMessage", "Tüm borçlar silindi.");
-                loadAdminTable();
+                loadAdminView();
             }
         }
         
-        async function downloadSelectedDebtsPdf() {
-            if (currentlyDisplayedAdminDebts.length === 0) {
-                return showMessage("adminTableMessage", "İndirilecek borç kaydı bulunmuyor.", true);
-            }
+        async function downloadMonthlyReportPdf() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             if (typeof doc.autoTable !== 'function') {
                 return showMessage("adminTableMessage", "PDF tablo eklentisi yüklenemedi.", true);
             }
-
-            const daire = document.getElementById("flatSelect").value;
-            showMessage("adminTableMessage", "Seçilen borçlar için PDF oluşturuluyor...", false);
             
-            let title = `Daire ${daire} Borç Listesi`;
-            if(isAdminDebtFilterActive) {
-                const month = document.getElementById('debtMonthFilter').value;
-                const year = document.getElementById('debtYearFilter').value;
-                title += ` (${month} ${year})`
+            const month = document.getElementById('debtMonthFilter').value;
+            const year = document.getElementById('debtYearFilter').value;
+            const ayFilter = `${month} ${year}`;
+            showMessage("adminTableMessage", `${ayFilter} için rapor oluşturuluyor...`, false);
+            
+            const tableData = [];
+            for(const daire of daireler) {
+                const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", ayFilter));
+                const debtSnapshot = await getDocs(q);
+                if(debtSnapshot.empty) {
+                    tableData.push([daire, "Kayıt Yok", "-", "-"]);
+                } else {
+                    debtSnapshot.forEach(doc => {
+                        const entry = doc.data();
+                        tableData.push([
+                            daire,
+                            entry.tip,
+                            `${entry.tutar} TL`,
+                            entry.odendi ? "Ödendi" : "Bekliyor"
+                        ]);
+                    });
+                }
             }
 
-            const tableData = currentlyDisplayedAdminDebts.map(entry => [
-                entry.ay,
-                entry.tip,
-                `${entry.tutar} TL`,
-                entry.odendi ? "Ödendi" : "Bekliyor"
-            ]);
-
             doc.autoTable({
-                head: [['Ay', 'Tip', 'Tutar', 'Durum']],
+                head: [['Daire', 'Tip', 'Tutar', 'Durum']],
                 body: tableData,
                 didDrawPage: function (data) {
                     doc.setFontSize(18);
-                    doc.text(title, 105, 20, { align: "center" });
+                    doc.text(`Aylık Borç Raporu - ${ayFilter}`, 105, 20, { align: "center" });
                     doc.setFontSize(12);
                     doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
                 },
@@ -1014,9 +1136,10 @@
                 styles: { font: 'helvetica', fontSize: 10 }
             });
 
-            doc.save(`Secilen_Borclar_${daire}_${new Date().toLocaleDateString('tr-TR')}.pdf`);
+            doc.save(`Aylik_Rapor_${month}_${year}.pdf`);
             showMessage("adminTableMessage", "PDF indirildi.");
         }
+
 
         async function downloadAllProfilesPdf() {
             const { jsPDF } = window.jspdf;
@@ -1108,7 +1231,7 @@
                     try {
                         await batch.commit();
                         showMessage("adminTableMessage", `${updatedCount} daire profili başarıyla güncellendi.`);
-                        loadAdminTable();
+                        loadAdminView();
                     } catch (error) {
                         console.error("Profil şablonu yüklenirken hata:", error);
                         showMessage("adminTableMessage", "Profiller güncellenirken bir hata oluştu.", true);
@@ -1155,7 +1278,7 @@
             let totalExpense = 0;
 
             const pubSnap = await getDocFromFirestore(doc(db, 'settings', 'publishedExpenses'));
-            publishedExpenseData = pubSnap.exists() ? pubSnap.data() : { published: false };
+            let publishedExpenseData = pubSnap.exists() ? pubSnap.data() : { published: false };
             const isPublished = publishedExpenseData.published && publishedExpenseData.month === month && publishedExpenseData.year === Number(year);
             publishButton.textContent = isPublished ? 'Yayından Kaldır' : 'Yayınla';
 
@@ -1234,15 +1357,7 @@
             showMessage("expenseMessage", "Tüm giderler için PDF oluşturuluyor...", false);
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            let yPos = 20;
-
-            doc.setFontSize(18);
-            doc.text("Ayvalık Yıldız Konakları - Tüm Giderler Listesi", 105, yPos, { align: "center" });
-            yPos += 10;
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, yPos, { align: "center" });
-            yPos += 20;
-
+            
             const expenseData = [];
             let totalExpense = 0;
             try {
@@ -1260,9 +1375,15 @@
                 expenseData.sort((a, b) => new Date(a[0]) - new Date(b[0]));
 
                 doc.autoTable({
-                    startY: yPos,
                     head: [['Tarih', 'Harcama Adı', 'Tutar']],
                     body: expenseData,
+                    didDrawPage: function (data) {
+                        doc.setFontSize(18);
+                        doc.text("Ayvalık Yıldız Konakları - Tüm Giderler Listesi", 105, 20, { align: "center" });
+                        doc.setFontSize(12);
+                        doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
+                    },
+                    startY: 35,
                     theme: 'grid',
                     foot: [['', 'Toplam Gider', `${totalExpense.toFixed(2)} TL`]],
                     footStyles: { fontStyle: 'bold', fillColor: [219, 233, 244] }
@@ -1285,11 +1406,13 @@
             document.getElementById('saveProfileBtn').addEventListener('click', saveUserProfile);
             document.getElementById('updateDuesBtn').addEventListener('click', updateAidatTutari);
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
-            document.getElementById('flatSelect').addEventListener('change', () => loadAdminTable(false));
-            document.getElementById('applyDebtFilterBtn').addEventListener('click', () => loadAdminTable(true));
-            document.getElementById('clearDebtFilterBtn').addEventListener('click', () => loadAdminTable(false));
+            document.getElementById('flatSelect').addEventListener('change', loadAdminView);
+            document.getElementById('applyDebtFilterBtn').addEventListener('click', loadAdminView);
+            document.getElementById('clearDebtFilterBtn').addEventListener('click', () => {
+                document.getElementById('flatSelect').value === 'all_apartments' ? loadAllApartmentsSummary() : loadAdminTable(false);
+            });
             document.getElementById('downloadProfilesBtn').addEventListener('click', downloadAllProfilesPdf);
-            document.getElementById('downloadSelectedDebtsBtn').addEventListener('click', downloadSelectedDebtsPdf);
+            document.getElementById('downloadSelectedDebtsBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
             document.getElementById('profileTemplateInput').addEventListener('change', uploadProfileTemplate);
@@ -1297,26 +1420,29 @@
             document.getElementById('filterExpensesBtn').addEventListener('click', () => loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value));
             document.getElementById('publishButton').addEventListener('click', toggleExpensesVisibility);
             document.getElementById('downloadAllExpensesBtn').addEventListener('click', downloadAllExpensesPdf);
-            document.getElementById('balanceSectionHeader').addEventListener('click', calculateAndShowBalance);
             document.getElementById('deleteAllDebtsBtn').addEventListener('click', deleteAllDebts);
             
             document.querySelectorAll('.collapsible-header').forEach(header => {
-                header.addEventListener('click', () => {
+                header.addEventListener('click', (event) => {
+                    if (event.target.closest('.refresh-icon')) { return; }
                     const content = header.nextElementSibling;
                     header.classList.toggle('active');
                     content.classList.toggle('active');
                     content.style.maxHeight = content.classList.contains('active') ? content.scrollHeight + "px" : null;
+                    if (header.id === 'balanceSectionHeader' && header.classList.contains('active')) {
+                        calculateAndShowBalance();
+                    }
                 });
             });
+            
+            document.getElementById('refreshBalanceBtn').addEventListener('click', calculateAndShowBalance);
 
             document.getElementById('adminPanel').addEventListener('click', function(event) {
                 const target = event.target.closest('.admin-action-btn');
                 if (!target) return;
-
                 const action = target.dataset.action;
                 const daire = target.dataset.daire;
                 const id = target.dataset.id;
-
                 if (action === 'edit-profile') editUserProfileAsAdmin(daire);
                 else if (action === 'delete-profile') deleteUserProfileAsAdmin(daire);
                 else if (action === 'mark-paid') markPaid(daire, id);
@@ -1326,43 +1452,69 @@
             });
         }
 
+        async function setupUserPanel(user) {
+            try {
+                const daireNo = user.email.split('@')[0].toUpperCase();
+                loggedInUsername = daireNo;
+                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daireNo));
+                const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+                
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("adminPanel").classList.add("hidden");
+                document.getElementById("userPanel").classList.remove("hidden");
+
+                document.getElementById("userNameDisplay").textContent = daireNo;
+                document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
+                
+                document.getElementById('balanceSummary').addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    document.getElementById('debtDetails').classList.toggle('active');
+                });
+
+                showPage('debtPage');
+                document.getElementById('showDebtBtn').addEventListener('click', () => { showPage('debtPage'); loadUserTable(daireNo); });
+                document.getElementById('showProfileBtn').addEventListener('click', () => { showPage('profilePage'); loadUserProfile(); });
+                document.getElementById('showExpensesBtn').addEventListener('click', () => { showPage('expensesPage'); loadUserExpensesTable(); });
+                
+                await checkProfileAndToggleExpensesButton();
+                await loadUserTable(daireNo);
+            } catch (error) {
+                console.error("Kullanıcı paneli kurulurken hata:", error);
+                showMessage('userMessage', 'Panel yüklenirken bir hata oluştu. Lütfen tekrar deneyin.', true);
+                logout();
+            }
+        }
+
+        async function setupAdminPanel() {
+            try {
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("userPanel").classList.add("hidden");
+                document.getElementById("adminPanel").classList.remove("hidden");
+                fillFlatSelects();
+                fillExpenseFilters();
+                fillAdminDebtFilters();
+                loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
+                await loadAdminView();
+            } catch(error) {
+                console.error("Admin paneli kurulurken hata:", error);
+                showMessage('loginMessage', 'Admin paneli yüklenirken bir hata oluştu.', true);
+                logout();
+            }
+        }
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const adminDocRef = doc(db, 'admins', user.uid);
-                const adminDocSnap = await getDocFromFirestore(adminDocRef);
-                if (adminDocSnap.exists() && adminDocSnap.data().isAdmin) {
-                    document.getElementById("login").classList.add("hidden");
-                    document.getElementById("userPanel").classList.add("hidden");
-                    document.getElementById("adminPanel").classList.remove("hidden");
-                    fillFlatSelects();
-                    fillExpenseFilters();
-                    fillAdminDebtFilters();
-                    loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
-                    await loadAdminTable();
-                } else {
-                    const daireNo = user.email.split('@')[0].toUpperCase();
-                    loggedInUsername = daireNo;
-                    const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daireNo));
-                    const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
-                    
-                    document.getElementById("login").classList.add("hidden");
-                    document.getElementById("adminPanel").classList.add("hidden");
-                    document.getElementById("userPanel").classList.remove("hidden");
-
-                    document.getElementById("userNameDisplay").textContent = daireNo;
-                    document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
-                    
-                    document.getElementById('balanceSummary').addEventListener('click', function() {
-                        this.classList.toggle('active');
-                        document.getElementById('debtDetails').classList.toggle('active');
-                    });
-
-                    showPage('debtPage');
-                    document.getElementById('showDebtBtn').onclick = () => { showPage('debtPage'); loadUserTable(daireNo); };
-                    document.getElementById('showProfileBtn').onclick = () => { showPage('profilePage'); loadUserProfile(); };
-
-                    await checkProfileAndToggleExpensesButton();
-                    loadUserTable(daireNo);
+                try {
+                    const adminDocRef = doc(db, 'admins', user.uid);
+                    const adminDocSnap = await getDocFromFirestore(adminDocRef);
+                    if (adminDocSnap.exists() && adminDocSnap.data().isAdmin) {
+                       await setupAdminPanel();
+                    } else {
+                       await setupUserPanel(user);
+                    }
+                } catch (error) {
+                    handleFirebaseError(error, 'loginMessage', 'Yetki kontrolü sırasında hata');
+                    logout();
                 }
             } else {
                 document.getElementById("login").classList.remove("hidden");
