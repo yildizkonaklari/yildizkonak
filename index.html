@@ -86,6 +86,7 @@
       border: 1px solid var(--border-color);
       padding: 12px;
       text-align: center;
+      word-break: break-word;
     }
     th {
       background-color: #dbe9f4;
@@ -271,12 +272,12 @@
 
     <div id="login">
       <h3>Giriş Yap</h3>
-      <input type="email" id="email" placeholder="E-posta Adresi (örn: a1@yildizkonaklari.com)">
+      <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
       <input type="password" id="password" placeholder="Şifre">
       <button id="loginButton">Giriş</button>
       <div id="loginMessage" class="message hidden"></div>
     </div>
-
+    
     <div id="userPanel" class="hidden">
       <h3>Hoş Geldiniz, <span id="userNameDisplay"></span><span id="userFullNameDisplay" style="font-weight: normal;"></span></h3>
       
@@ -286,7 +287,7 @@
         <button id="showExpensesBtn" style="flex-grow: 1;" class="hidden">Giderler</button>
       </div>
 
-      <div id="profileIncompleteMessage" class="error-message hidden"></div>
+       <div id="profileIncompleteMessage" class="error-message hidden"></div>
 
       <div id="debtPage">
         <h4>Bakiyeniz</h4>
@@ -318,9 +319,8 @@
         <h4>Profil Bilgilerim</h4>
         <div class="profile-info-text">
             <strong>Ad Soyad:</strong> <span id="profileNameDisplay">Yükleniyor...</span>
-            <p style="font-size: 0.8em; margin-top: 5px;">(Ad/Soyad değişikliği için lütfen yönetici ile iletişime geçin.)</p>
         </div>
-        <input type="text" id="phoneInput" placeholder="Telefon Numaranız">
+        <input type="text" id="phoneInput" placeholder="Telefon (5xx xxx xx xx)">
         <input type="email" id="mailInput" placeholder="E-posta Adresiniz">
         <button id="saveProfileBtn">Bilgileri Kaydet</button>
         <div id="profileMessage" class="message hidden"></div>
@@ -346,7 +346,21 @@
 
     <div id="adminPanel" class="hidden">
       <h3>Yönetici Paneli</h3>
-
+      
+      <div class="section-divider"></div>
+      <button class="collapsible-header">
+        Daire Şifresi Ayarla
+      </button>
+      <div id="passwordSection" class="collapsible-content">
+        <select id="sifreDaire"></select>
+        <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
+        <button id="savePasswordBtn">Daire Şifresini Kaydet</button>
+        <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
+        <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
+        <button id="saveAdminPasswordBtn">Yönetici Şifresini Kaydet</button>
+        <div id="passwordMessage" class="message hidden"></div>
+      </div>
+      
       <div class="section-divider"></div>
       <button class="collapsible-header">
         Aidat Tutarını Güncelle
@@ -415,7 +429,7 @@
         <h4>Raporlar ve Toplu İşlemler</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
             <button id="downloadProfilesBtn" class="download-btn" style="flex-grow: 1;">Tüm Profilleri İndir (PDF)</button>
-            <button id="downloadSelectedDebtsBtn" class="download-btn" style="flex-grow: 1;">Aylık Rapor İndir (PDF)</button>
+            <button id="downloadMonthlyReportBtn" class="download-btn" style="flex-grow: 1;">Aylık Rapor İndir (PDF)</button>
         </div>
         <div style="margin-top: 15px;">
             <h5>Toplu Profil Güncelleme</h5>
@@ -489,11 +503,24 @@
     </div>
   </div>
 
+  <div id="termsModal" class="modal">
+    <div class="modal-content">
+      <span id="modalCloseBtn" class="modal-close">&times;</span>
+      <h4>Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesi</h4>
+      <div class="terms-box" style="height: 40vh;">
+        <p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, kişisel verileriniz; veri sorumlusu olarak Yıldız Konakları Site Yönetimi tarafından aşağıda açıklanan kapsamda işlenebilecektir.</p>
+        <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
+        <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
+        <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
+        <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc as getDocFromFirestore, query, where, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
+    
     document.addEventListener('DOMContentLoaded', () => {
         const firebaseConfig = {
           apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
@@ -507,25 +534,16 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app);
-
+        
         let loggedInUsername = null;
         let paymentStatusChart = null;
+        let adminCredentials = { username: "admin", password: "admin123" };
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         const daireler = [];
         ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
           for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`);
         });
 
-        function handleFirebaseError(error, elementId, userMessage) {
-            console.error(`${userMessage}:`, error);
-            let detailedMessage = `Bir hata oluştu: ${userMessage}. Lütfen tekrar deneyin.`;
-            if (error.code === 'permission-denied') {
-                detailedMessage = "Veritabanı erişim yetkiniz yok. Lütfen Firebase güvenlik kurallarınızı kontrol edin.";
-            }
-            showMessage(elementId, detailedMessage, true);
-        }
-        
         function showMessage(elementId, message, isError = false) {
             const element = document.getElementById(elementId);
             if (!element) return;
@@ -571,52 +589,49 @@
         }
 
         async function login() {
-          const email = document.getElementById("email").value.trim();
-          const password = document.getElementById("password").value;
-          if (!email || !password) {
-              return showMessage("loginMessage", "Lütfen e-posta ve şifre alanlarını doldurun.", true);
-          }
-          try {
-            await signInWithEmailAndPassword(auth, email, password);
-          } catch (error) {
-            console.error("Giriş hatası:", error);
-            showMessage("loginMessage", "E-posta veya şifre hatalı.", true);
-          }
+            const username = document.getElementById("username").value.trim().toUpperCase();
+            const password = document.getElementById("password").value;
+            if (!username || !password) {
+                return showMessage("loginMessage", "Lütfen tüm alanları doldurun.", true);
+            }
+
+            if (username === adminCredentials.username.toUpperCase() && password === adminCredentials.password) {
+                setupAdminPanel();
+                return;
+            }
+            
+            try {
+                const flatDoc = await getDocFromFirestore(doc(db, "apartments", username));
+                if (!flatDoc.exists() || flatDoc.data().password !== password) {
+                    return showMessage("loginMessage", "Kullanıcı adı veya şifre hatalı.", true);
+                }
+                loggedInUsername = username;
+                setupUserPanel();
+            } catch (error) {
+                console.error("Giriş hatası:", error);
+                showMessage("loginMessage", "Giriş sırasında bir hata oluştu.", true);
+            }
         }
 
         async function logout() {
-          try {
-            await signOut(auth);
-          } catch (error) {
-            console.error("Çıkış hatası:", error);
-          }
-        }
-        
-        async function isProfileComplete() {
-            try {
-                if (!loggedInUsername) return false;
-                const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
-                if (userDocSnap.exists()) {
-                    const { telefon } = userDocSnap.data();
-                    return !!telefon;
-                }
-            } catch (error) {
-                console.error("Profil durumu kontrol edilirken hata:", error);
-            }
-            return false;
+          location.reload();
         }
         
         async function checkProfileAndToggleExpensesButton() {
             try {
-                const expensesBtn = document.getElementById('showExpensesBtn');
-                const warningMsg = document.getElementById('profileIncompleteMessage');
-                if (await isProfileComplete()) {
-                    expensesBtn.classList.remove('hidden');
-                    warningMsg.classList.add('hidden');
-                } else {
-                    expensesBtn.classList.add('hidden');
-                    warningMsg.textContent = "Giderleri görebilmek için lütfen profil sayfasından telefon numaranızı ekleyin.";
-                    warningMsg.classList.remove('hidden');
+                const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
+                if (userDocSnap.exists()) {
+                    const { telefon, mail } = userDocSnap.data();
+                    const expensesBtn = document.getElementById('showExpensesBtn');
+                    const warningMsg = document.getElementById('profileIncompleteMessage');
+                    if (telefon && mail) {
+                        expensesBtn.classList.remove('hidden');
+                        warningMsg.classList.add('hidden');
+                    } else {
+                        expensesBtn.classList.add('hidden');
+                        warningMsg.textContent = "Giderleri görebilmek için lütfen profil sayfasından telefon ve e-posta bilgilerinizi ekleyin.";
+                        warningMsg.classList.remove('hidden');
+                    }
                 }
             } catch (error) {
                  console.error("Giderler butonu kontrol edilirken hata:", error);
@@ -628,7 +643,7 @@
             try {
                 const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
                 if (userDocSnap.exists()) {
-                    const { adi = '', soyadi = '', telefon = '', mail = '' } = userDocSnap.data();
+                    const { adi = 'Bilgi Yok', soyadi = '', telefon = '', mail = '' } = userDocSnap.data();
                     document.getElementById('profileNameDisplay').textContent = `${adi} ${soyadi}`;
                     document.getElementById('phoneInput').value = telefon;
                     document.getElementById('mailInput').value = mail;
@@ -638,15 +653,14 @@
                 showMessage("profileMessage", "Profil yüklenirken bir hata oluştu.", true);
             }
         }
-
+        
         async function saveUserProfile() {
             const telefon = document.getElementById('phoneInput').value.trim();
             const mail = document.getElementById('mailInput').value.trim();
 
-            if (!telefon) { 
-                return showMessage("profileMessage", "Lütfen telefon numaranızı girin.", true);
+            if (!telefon || !mail) { 
+                return showMessage("profileMessage", "Lütfen telefon ve e-posta alanlarını doldurun.", true);
             }
-
             try {
                 await updateDoc(doc(db, 'apartments', loggedInUsername), { telefon, mail });
                 showMessage("profileMessage", "Profil bilgileriniz kaydedildi.");
@@ -656,7 +670,7 @@
                 showMessage("profileMessage", "Bilgiler kaydedilirken bir sorun oluştu.", true);
             }
         }
-
+        
         async function loadUserTable(username) {
           const table = document.getElementById("userTable");
           const unpaidTotalSpan = document.getElementById("userUnpaidTotal"); 
@@ -781,13 +795,15 @@
         }
 
         function fillFlatSelects() {
-            const select = document.getElementById("flatSelect");
-            select.innerHTML = '<option value="all_apartments">Tüm Daireler</option>';
-            daireler.forEach(daire => select.innerHTML += `<option value="${daire}">${daire}</option>`);
-
-            const borcKimeSelect = document.getElementById("borcKime");
-            borcKimeSelect.innerHTML = '<option value="all_apartments">Tüm Daireler</option>';
-            daireler.forEach(daire => borcKimeSelect.innerHTML += `<option value="${daire}">${daire}</option>`);
+            const selects = ["flatSelect", "borcKime", "sifreDaire"];
+            selects.forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = "";
+                if(id === 'flatSelect' || id === 'borcKime'){
+                    select.innerHTML += '<option value="all_apartments">Tüm Daireler</option>';
+                }
+                daireler.forEach(daire => select.innerHTML += `<option value="${daire}">${daire}</option>`);
+            });
         }
 
         async function loadAdminView() {
@@ -1399,6 +1415,54 @@
             }
         }
         
+        async function setupUserPanel() {
+            try {
+                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
+                const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+                
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("adminPanel").classList.add("hidden");
+                document.getElementById("userPanel").classList.remove("hidden");
+
+                document.getElementById("userNameDisplay").textContent = loggedInUsername;
+                document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
+                
+                document.getElementById('balanceSummary').addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    document.getElementById('debtDetails').classList.toggle('active');
+                });
+
+                showPage('debtPage');
+                document.getElementById('showDebtBtn').addEventListener('click', () => { showPage('debtPage'); loadUserTable(loggedInUsername); });
+                document.getElementById('showProfileBtn').addEventListener('click', () => { showPage('profilePage'); loadUserProfile(); });
+                document.getElementById('showExpensesBtn').addEventListener('click', () => { showPage('expensesPage'); loadUserExpensesTable(); });
+                
+                await checkProfileAndToggleExpensesButton();
+                await loadUserTable(loggedInUsername);
+            } catch (error) {
+                console.error("Kullanıcı paneli kurulurken hata:", error);
+                showMessage('userMessage', 'Panel yüklenirken bir hata oluştu. Lütfen tekrar deneyin.', true);
+                logout();
+            }
+        }
+
+        async function setupAdminPanel() {
+            try {
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("userPanel").classList.add("hidden");
+                document.getElementById("adminPanel").classList.remove("hidden");
+                fillFlatSelects();
+                fillExpenseFilters();
+                fillAdminDebtFilters();
+                loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
+                await loadAdminView();
+            } catch(error) {
+                console.error("Admin paneli kurulurken hata:", error);
+                showMessage('loginMessage', 'Admin paneli yüklenirken bir hata oluştu.', true);
+                logout();
+            }
+        }
+
         function addEventListeners() {
             document.getElementById('loginButton').addEventListener('click', login);
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
@@ -1409,10 +1473,11 @@
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
             document.getElementById('applyDebtFilterBtn').addEventListener('click', loadAdminView);
             document.getElementById('clearDebtFilterBtn').addEventListener('click', () => {
-                document.getElementById('flatSelect').value === 'all_apartments' ? loadAllApartmentsSummary() : loadAdminTable(false);
+                document.getElementById('flatSelect').value = 'all_apartments';
+                loadAdminView();
             });
             document.getElementById('downloadProfilesBtn').addEventListener('click', downloadAllProfilesPdf);
-            document.getElementById('downloadSelectedDebtsBtn').addEventListener('click', downloadMonthlyReportPdf);
+            document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
             document.getElementById('profileTemplateInput').addEventListener('change', uploadProfileTemplate);
@@ -1421,6 +1486,8 @@
             document.getElementById('publishButton').addEventListener('click', toggleExpensesVisibility);
             document.getElementById('downloadAllExpensesBtn').addEventListener('click', downloadAllExpensesPdf);
             document.getElementById('deleteAllDebtsBtn').addEventListener('click', deleteAllDebts);
+            document.getElementById('savePasswordBtn').addEventListener('click', sifreAyarla);
+            document.getElementById('saveAdminPasswordBtn').addEventListener('click', setAdminPassword);
             
             document.querySelectorAll('.collapsible-header').forEach(header => {
                 header.addEventListener('click', (event) => {
@@ -1450,81 +1517,49 @@
                 else if (action === 'delete-debt') silBorc(daire, id);
                 else if (action === 'delete-expense') deleteExpense(id);
             });
+            
         }
 
-        async function setupUserPanel(user) {
+        async function sifreAyarla() {
+            const daire = document.getElementById("sifreDaire").value;
+            const yeniSifre = document.getElementById("yeniSifre").value;
+            if (yeniSifre.length < 3) return showMessage("passwordMessage", "Şifre en az 3 karakter olmalı.", true);
             try {
-                const daireNo = user.email.split('@')[0].toUpperCase();
-                loggedInUsername = daireNo;
-                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daireNo));
-                const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
-                
-                document.getElementById("login").classList.add("hidden");
-                document.getElementById("adminPanel").classList.add("hidden");
-                document.getElementById("userPanel").classList.remove("hidden");
-
-                document.getElementById("userNameDisplay").textContent = daireNo;
-                document.getElementById("userFullNameDisplay").textContent = `, ${userData.adi || ''} ${userData.soyadi || ''}`;
-                
-                document.getElementById('balanceSummary').addEventListener('click', function() {
-                    this.classList.toggle('active');
-                    document.getElementById('debtDetails').classList.toggle('active');
-                });
-
-                showPage('debtPage');
-                document.getElementById('showDebtBtn').addEventListener('click', () => { showPage('debtPage'); loadUserTable(daireNo); });
-                document.getElementById('showProfileBtn').addEventListener('click', () => { showPage('profilePage'); loadUserProfile(); });
-                document.getElementById('showExpensesBtn').addEventListener('click', () => { showPage('expensesPage'); loadUserExpensesTable(); });
-                
-                await checkProfileAndToggleExpensesButton();
-                await loadUserTable(daireNo);
-            } catch (error) {
-                console.error("Kullanıcı paneli kurulurken hata:", error);
-                showMessage('userMessage', 'Panel yüklenirken bir hata oluştu. Lütfen tekrar deneyin.', true);
-                logout();
+                await setDoc(doc(db, 'apartments', daire), { password: yeniSifre }, { merge: true });
+                showMessage("passwordMessage", `${daire} şifresi güncellendi.`);
+            } catch (e) {
+                showMessage("passwordMessage", "Şifre güncellenemedi.", true);
             }
         }
 
-        async function setupAdminPanel() {
+        async function setAdminPassword() {
+            const newPass = document.getElementById("adminYeniSifre").value;
+            if (newPass.length < 5) return showMessage("passwordMessage", "Şifre en az 5 karakter olmalı.", true);
             try {
-                document.getElementById("login").classList.add("hidden");
-                document.getElementById("userPanel").classList.add("hidden");
-                document.getElementById("adminPanel").classList.remove("hidden");
-                fillFlatSelects();
-                fillExpenseFilters();
-                fillAdminDebtFilters();
-                loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
-                await loadAdminView();
-            } catch(error) {
-                console.error("Admin paneli kurulurken hata:", error);
-                showMessage('loginMessage', 'Admin paneli yüklenirken bir hata oluştu.', true);
-                logout();
+                await setDoc(doc(db, 'admin', 'credentials'), { password: newPass }, { merge: true });
+                adminCredentials.password = newPass;
+                showMessage("passwordMessage", "Yönetici şifresi güncellendi.");
+            } catch (e) {
+                showMessage("passwordMessage", "Şifre güncellenemedi.", true);
             }
         }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    const adminDocRef = doc(db, 'admins', user.uid);
-                    const adminDocSnap = await getDocFromFirestore(adminDocRef);
-                    if (adminDocSnap.exists() && adminDocSnap.data().isAdmin) {
-                       await setupAdminPanel();
-                    } else {
-                       await setupUserPanel(user);
-                    }
-                } catch (error) {
-                    handleFirebaseError(error, 'loginMessage', 'Yetki kontrolü sırasında hata');
-                    logout();
+        
+        async function initialize() {
+            try {
+                const adminDoc = await getDocFromFirestore(doc(db, 'admin', 'credentials'));
+                if (adminDoc.exists()) {
+                    adminCredentials = adminDoc.data();
+                } else {
+                    await setDoc(doc(db, 'admin', 'credentials'), adminCredentials);
                 }
-            } else {
-                document.getElementById("login").classList.remove("hidden");
-                document.getElementById("userPanel").classList.add("hidden");
-                document.getElementById("adminPanel").classList.add("hidden");
-                loggedInUsername = null;
+            } catch (error) {
+                console.error("Sistem başlatılırken hata:", error);
+                showMessage('loginMessage', 'Sistem başlatılırken bir hata oluştu.', true);
             }
-        });
+        }
 
         addEventListeners();
+        initialize();
     });
   </script>
 </body>
