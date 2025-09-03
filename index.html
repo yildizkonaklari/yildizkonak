@@ -263,6 +263,59 @@
     .collapsible-header > span:first-child {
         flex-grow: 1;
     }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 700px;
+        border-radius: 10px;
+        position: relative;
+    }
+    .modal-content h4 { text-align: left; }
+    .modal-close {
+        color: #aaa;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .terms-box {
+        height: 200px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background-color: #f9f9f9;
+        margin-bottom: 10px;
+    }
+    .terms-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    input[type="checkbox"] {
+        width: auto;
+    }
+    #openTermsModal {
+        color: var(--primary-color);
+        text-decoration: underline;
+        cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -274,7 +327,11 @@
       <h3>Giriş Yap</h3>
       <input type="text" id="username" placeholder="Kullanıcı Adı (örn: A1)">
       <input type="password" id="password" placeholder="Şifre">
-      <button id="loginButton">Giriş</button>
+       <label class="terms-label">
+        <input type="checkbox" id="loginTerms">
+        <span><a href="#" id="openTermsModal">Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesini</a> okudum, kabul ediyorum.</span>
+      </label>
+      <button id="loginButton" disabled>Giriş</button>
       <div id="loginMessage" class="message hidden"></div>
     </div>
     
@@ -393,15 +450,10 @@
       </button>
       <div id="debtListSection" class="collapsible-content">
         <select id="flatSelect"></select>
-        <div id="userInfoDisplay" class="user-profile-display hidden"></div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <select id="debtMonthFilter" style="width: 50%;"></select>
-            <select id="debtYearFilter" style="width: 50%;"></select>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button id="applyDebtFilterBtn">Filtrele</button>
-            <button id="clearDebtFilterBtn" class="edit-btn" style="color: white !important;">Filtreyi Temizle</button>
+        <div class="month-selector">
+            <button id="prevMonthBtn">&lt;</button>
+            <span id="currentMonthDisplay"></span>
+            <button id="nextMonthBtn">&gt;</button>
         </div>
         
         <div id="allApartmentsSummary" class="hidden">
@@ -413,6 +465,7 @@
         </div>
 
         <div id="singleApartmentView">
+            <div id="userInfoDisplay" class="user-profile-display hidden"></div>
             <div class="admin-table-container">
                 <div class="table-responsive">
                   <table id="adminTable">
@@ -539,6 +592,8 @@
         let paymentStatusChart = null;
         let adminCredentials = { username: "admin", password: "admin123" };
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+        let currentAdminDate = new Date();
+
         const daireler = [];
         ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => {
           for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`);
@@ -574,28 +629,28 @@
           yearSelect.value = currentYear;
         }
 
-        function fillAdminDebtFilters() {
-          const monthSelect = document.getElementById('debtMonthFilter');
-          const yearSelect = document.getElementById('debtYearFilter');
-          monthSelect.innerHTML = aylar.map((ay) => `<option value="${ay}">${ay}</option>`).join('');
-          const currentYear = new Date().getFullYear();
-          let yearsHtml = '';
-          for(let i = currentYear - 2; i <= currentYear + 1; i++) {
-            yearsHtml += `<option value="${i}">${i}</option>`;
-          }
-          yearSelect.innerHTML = yearsHtml;
-          monthSelect.value = aylar[new Date().getMonth()];
-          yearSelect.value = currentYear;
+        function updateAdminDateDisplay() {
+            const monthName = aylar[currentAdminDate.getMonth()];
+            const year = currentAdminDate.getFullYear();
+            document.getElementById('currentMonthDisplay').textContent = `${monthName} ${year}`;
+            loadAdminView();
         }
+
 
         async function login() {
             const username = document.getElementById("username").value.trim().toUpperCase();
             const password = document.getElementById("password").value;
+            const terms = document.getElementById('loginTerms').checked;
+
             if (!username || !password) {
                 return showMessage("loginMessage", "Lütfen tüm alanları doldurun.", true);
             }
+             if(!terms) {
+                return showMessage('loginMessage', 'Lütfen kullanıcı sözleşmesini onaylayın.', true);
+            }
 
             if (username === adminCredentials.username.toUpperCase() && password === adminCredentials.password) {
+                await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
                 setupAdminPanel();
                 return;
             }
@@ -606,6 +661,7 @@
                     return showMessage("loginMessage", "Kullanıcı adı veya şifre hatalı.", true);
                 }
                 loggedInUsername = username;
+                await updateDoc(doc(db, "apartments", loggedInUsername), { lastLogin: new Date() });
                 setupUserPanel();
             } catch (error) {
                 console.error("Giriş hatası:", error);
@@ -744,8 +800,9 @@
             unpaidTotalSpan.textContent = `₺${totalUnpaid.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             document.getElementById("userDebtTotals").textContent = `Ödenen Toplam: ${totalPaid} TL | Ödenmeyen Toplam: ${totalUnpaid} TL`;
           } catch (error) {
-            handleFirebaseError(error, 'userMessage', 'Kullanıcı borçları yüklenirken hata');
-            unpaidTotalSpan.textContent = "Yetki Hatası";
+            console.error("Kullanıcı borçları yüklenirken hata:", error);
+            showMessage("userMessage", "Borç bilgileri yüklenemedi.", true);
+            unpaidTotalSpan.textContent = "Hata";
           }
         }
 
@@ -790,7 +847,8 @@
                 }
                 document.getElementById("userExpenseTotals").textContent = `Toplam Gider: ${totalExpense.toFixed(2)} TL`;
             } catch (error) {
-                handleFirebaseError(error, 'userMessage', 'Kullanıcı giderleri yüklenirken hata');
+                console.error("Kullanıcı giderleri yüklenirken hata:", error);
+                showMessage('userMessage', "Gider bilgileri yüklenemedi.", true);
             }
         }
 
@@ -809,13 +867,13 @@
         async function loadAdminView() {
             const selectedDaire = document.getElementById("flatSelect").value;
             if (selectedDaire === 'all_apartments') {
-                await loadAllApartmentsSummary(true);
+                await loadAllApartmentsSummary();
             } else {
-                await loadAdminTable(false);
+                await loadAdminTable();
             }
         }
 
-        async function loadAdminTable(filter = false) {
+        async function loadAdminTable() {
           const daire = document.getElementById("flatSelect").value;
           if (!daire) return;
 
@@ -830,10 +888,12 @@
           try {
             const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daire));
             const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+            const lastLogin = userData.lastLogin ? new Date(userData.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
             userInfoDisplay.innerHTML = `<p><strong>Daire:</strong> ${daire}</p>
                 <p><strong>Adı Soyadı:</strong> ${userData.adi || 'Bilgi Yok'} ${userData.soyadi || ''}</p>
                 <p><strong>Telefon:</strong> ${userData.telefon || 'Bilgi Yok'}</p>
                 <p><strong>E-posta:</strong> ${userData.mail || 'Bilgi Yok'}</p>
+                <p><strong>Son Giriş:</strong> ${lastLogin}</p>
                 <div class="user-profile-actions">
                   <button class="edit-btn admin-action-btn" data-action="edit-profile" data-daire="${daire}">Düzenle</button>
                   <button class="delete-btn admin-action-btn" data-action="delete-profile" data-daire="${daire}">Sil</button>
@@ -841,20 +901,14 @@
             userInfoDisplay.classList.remove("hidden");
 
             const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
-            let q;
-
-            if (filter) {
-                const month = document.getElementById('debtMonthFilter').value;
-                const year = document.getElementById('debtYearFilter').value;
-                const ayFilter = `${month} ${year}`;
-                q = query(debtsCollectionRef, where("ay", "==", ayFilter));
-            } else {
-                q = query(debtsCollectionRef);
-            }
+            const monthName = aylar[currentAdminDate.getMonth()];
+            const year = currentAdminDate.getFullYear();
+            const ayFilter = `${monthName} ${year}`;
+            const q = query(debtsCollectionRef, where("ay", "==", ayFilter));
 
             const debtSnapshot = await getDocs(q);
             if (debtSnapshot.empty) {
-                table.innerHTML += `<tr><td colspan="5">Seçili kriterlere uygun borç bulunmamaktadır.</td></tr>`;
+                table.innerHTML += `<tr><td colspan="5">Seçili ay için borç bulunmamaktadır.</td></tr>`;
                 document.getElementById("borcToplam").textContent = `Toplam: 0 TL | Ödenen: 0 TL | Kalan: 0 TL`;
                 return;
             }
@@ -877,7 +931,8 @@
             table.innerHTML += rowsHtml;
             document.getElementById("borcToplam").textContent = `Toplam: ${toplam} TL | Ödenen: ${odenen} TL | Kalan: ${toplam - odenen} TL`;
           } catch (error) {
-            handleFirebaseError(error, 'adminTableMessage', 'Yönetici borçları yüklenirken hata');
+            console.error("Yönetici tablosu yüklenirken hata:", error);
+            showMessage("adminTableMessage", "Borç bilgileri yüklenemedi.", true);
           }
         }
 
@@ -886,8 +941,8 @@
             document.getElementById('userInfoDisplay').classList.add('hidden');
             document.getElementById('allApartmentsSummary').classList.remove('hidden');
 
-            const month = document.getElementById('debtMonthFilter').value;
-            const year = document.getElementById('debtYearFilter').value;
+            const month = aylar[currentAdminDate.getMonth()];
+            const year = currentAdminDate.getFullYear();
             const ayFilter = `${month} ${year}`;
             
             document.getElementById('summaryChartTitle').textContent = `${ayFilter} Ödeme Durumu`;
@@ -925,7 +980,7 @@
                         labels: ['Ödeyen', 'Ödemeyen', 'Kayıt Yok'],
                         datasets: [{
                             data: [paidCount, unpaidCount, noRecordCount],
-                            backgroundColor: ['var(--success-color)', 'var(--danger-color)', 'var(--border-color)'],
+                             backgroundColor: ['var(--success-color)', 'var(--danger-color)', 'var(--border-color)'],
                             borderColor: 'var(--container-bg)',
                             borderWidth: 2
                         }]
@@ -944,7 +999,8 @@
                     }
                 });
             } catch (error) {
-                handleFirebaseError(error, 'adminTableMessage', 'Genel özet yüklenirken hata');
+                console.error("Genel özet yüklenirken hata:", error);
+                showMessage("adminTableMessage", "Özet bilgileri yüklenemedi.", true);
             }
         }
 
@@ -978,7 +1034,8 @@
                         adi: deleteField(),
                         soyadi: deleteField(),
                         telefon: deleteField(),
-                        mail: deleteField()
+                        mail: deleteField(),
+                        password: deleteField()
                     });
                     showMessage("adminTableMessage", "Profil silindi.");
                     loadAdminTable();
@@ -993,7 +1050,7 @@
                 try {
                     await updateDoc(doc(db, 'apartments', daire, 'debts', debtId), { odendi: true });
                     showMessage("adminTableMessage", "Borç ödendi olarak işaretlendi.");
-                    loadAdminTable(document.getElementById('flatSelect').value !== 'all_apartments' && document.getElementById('debtMonthFilter').value !== '');
+                    loadAdminView();
                 } catch (e) {
                     showMessage("adminTableMessage", "İşlem başarısız.", true);
                 }
@@ -1114,8 +1171,8 @@
                 return showMessage("adminTableMessage", "PDF tablo eklentisi yüklenemedi.", true);
             }
             
-            const month = document.getElementById('debtMonthFilter').value;
-            const year = document.getElementById('debtYearFilter').value;
+            const month = aylar[currentAdminDate.getMonth()];
+            const year = currentAdminDate.getFullYear();
             const ayFilter = `${month} ${year}`;
             showMessage("adminTableMessage", `${ayFilter} için rapor oluşturuluyor...`, false);
             
@@ -1175,8 +1232,8 @@
                 profileData.push([
                     daire,
                     `${userData.adi || 'N/A'} ${userData.soyadi || ''}`,
-                    userData.telefon || 'N/A',
-                    userData.mail || 'N/A'
+                    `${userData.telefon || 'N/A'}`,
+                    `${userData.mail || 'N/A'}`
                 ]);
             }
             
@@ -1453,7 +1510,7 @@
                 document.getElementById("adminPanel").classList.remove("hidden");
                 fillFlatSelects();
                 fillExpenseFilters();
-                fillAdminDebtFilters();
+                updateAdminDateDisplay();
                 loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
                 await loadAdminView();
             } catch(error) {
@@ -1462,7 +1519,7 @@
                 logout();
             }
         }
-
+        
         function addEventListeners() {
             document.getElementById('loginButton').addEventListener('click', login);
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
@@ -1471,11 +1528,15 @@
             document.getElementById('updateDuesBtn').addEventListener('click', updateAidatTutari);
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
-            document.getElementById('applyDebtFilterBtn').addEventListener('click', loadAdminView);
-            document.getElementById('clearDebtFilterBtn').addEventListener('click', () => {
-                document.getElementById('flatSelect').value = 'all_apartments';
-                loadAdminView();
+            document.getElementById('prevMonthBtn').addEventListener('click', () => {
+                currentAdminDate.setMonth(currentAdminDate.getMonth() - 1);
+                updateAdminDateDisplay();
             });
+            document.getElementById('nextMonthBtn').addEventListener('click', () => {
+                currentAdminDate.setMonth(currentAdminDate.getMonth() + 1);
+                updateAdminDateDisplay();
+            });
+
             document.getElementById('downloadProfilesBtn').addEventListener('click', downloadAllProfilesPdf);
             document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
@@ -1488,6 +1549,9 @@
             document.getElementById('deleteAllDebtsBtn').addEventListener('click', deleteAllDebts);
             document.getElementById('savePasswordBtn').addEventListener('click', sifreAyarla);
             document.getElementById('saveAdminPasswordBtn').addEventListener('click', setAdminPassword);
+            document.getElementById('loginTerms').addEventListener('change', function() {
+                document.getElementById('loginButton').disabled = !this.checked;
+            });
             
             document.querySelectorAll('.collapsible-header').forEach(header => {
                 header.addEventListener('click', (event) => {
@@ -1518,6 +1582,19 @@
                 else if (action === 'delete-expense') deleteExpense(id);
             });
             
+            const modal = document.getElementById('termsModal');
+            document.getElementById('openTermsModal').addEventListener('click', (e) => {
+                e.preventDefault();
+                modal.style.display = 'block';
+            });
+            document.getElementById('modalCloseBtn').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            window.addEventListener('click', (event) => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            });
         }
 
         async function sifreAyarla() {
