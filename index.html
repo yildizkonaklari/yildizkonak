@@ -316,6 +316,29 @@
         text-decoration: underline;
         cursor: pointer;
     }
+     .month-selector {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #fff;
+        padding: 10px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border: 1px solid var(--border-color);
+    }
+    .month-selector button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--primary-color);
+        padding: 0 15px;
+    }
+    .month-selector span {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: var(--text-color);
+    }
   </style>
 </head>
 <body>
@@ -420,24 +443,17 @@
       
       <div class="section-divider"></div>
       <button class="collapsible-header">
-        Aidat Tutarını Güncelle
-      </button>
-      <div id="aidatSection" class="collapsible-content">
-        <input type="number" id="aidatTutariInput" placeholder="Yeni Aidat Tutarı (₺)">
-        <button id="updateDuesBtn">Aidat Tutarını Güncelle ve Tüm Dairelere Ekle</button>
-        <div id="aidatMessage" class="message hidden"></div>
-      </div>
-
-      <div class="section-divider"></div>
-      <button class="collapsible-header">
-        Yeni Borç Ekle
+        Aidat-Avans Ekle
       </button>
       <div id="newDebtSection" class="collapsible-content">
         <select id="borcTipi">
           <option value="aidat">Aidat</option>
           <option value="avans">Avans</option>
         </select>
-        <input type="text" id="borcAy" placeholder="Ay (örn: Temmuz 2025)">
+         <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <select id="borcAySelect" style="width: 50%;"></select>
+            <select id="borcYilSelect" style="width: 50%;"></select>
+        </div>
         <input type="number" id="borcTutar" placeholder="Tutar (₺)">
         <select id="borcKime"></select>
         <button id="addDebtBtn">Borç Ekle</button>
@@ -450,7 +466,7 @@
       </button>
       <div id="debtListSection" class="collapsible-content">
         <select id="flatSelect"></select>
-        <div class="month-selector">
+         <div class="month-selector">
             <button id="prevMonthBtn">&lt;</button>
             <span id="currentMonthDisplay"></span>
             <button id="nextMonthBtn">&gt;</button>
@@ -628,6 +644,21 @@
           monthSelect.value = aylar[new Date().getMonth()];
           yearSelect.value = currentYear;
         }
+
+        function fillBorcEkleDateFilters() {
+          const monthSelect = document.getElementById('borcAySelect');
+          const yearSelect = document.getElementById('borcYilSelect');
+          monthSelect.innerHTML = aylar.map((ay) => `<option value="${ay}">${ay}</option>`).join('');
+          const currentYear = new Date().getFullYear();
+          let yearsHtml = '';
+          for(let i = currentYear - 2; i <= currentYear + 2; i++) {
+            yearsHtml += `<option value="${i}">${i}</option>`;
+          }
+          yearSelect.innerHTML = yearsHtml;
+          monthSelect.value = aylar[new Date().getMonth()];
+          yearSelect.value = currentYear;
+        }
+
 
         function updateAdminDateDisplay() {
             const monthName = aylar[currentAdminDate.getMonth()];
@@ -1059,7 +1090,9 @@
 
         async function ekleBorc() {
             const daire = document.getElementById("borcKime").value;
-            const ay = document.getElementById("borcAy").value.trim();
+            const month = document.getElementById("borcAySelect").value;
+            const year = document.getElementById("borcYilSelect").value;
+            const ay = `${month} ${year}`;
             const tutar = Number(document.getElementById("borcTutar").value);
             const tip = document.getElementById("borcTipi").value;
 
@@ -1124,32 +1157,6 @@
                 showMessage("adminTableMessage", "Borç güncellenemedi.", true);
             }
         }
-
-        async function updateAidatTutari() {
-            const yeni = Number(document.getElementById("aidatTutariInput").value);
-            if (!yeni || yeni <= 0) return showMessage("aidatMessage", "Geçerli bir tutar girin.", true);
-            
-            const currentMonth = new Date().toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
-            try {
-                await setDoc(doc(db, 'settings', 'aidat'), { amount: yeni });
-                const batch = writeBatch(db);
-                let addedCount = 0;
-                for (const daire of daireler) {
-                    const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", currentMonth), where("tip", "==", "aidat"));
-                    const existing = await getDocs(q);
-                    if (existing.empty) {
-                        const newDebtRef = doc(collection(db, 'apartments', daire, 'debts'));
-                        batch.set(newDebtRef, { ay: currentMonth, tutar: yeni, tip: 'aidat', odendi: false });
-                        addedCount++;
-                    }
-                }
-                if (addedCount > 0) await batch.commit();
-                showMessage("aidatMessage", `Aidat güncellendi. ${addedCount} daireye ${currentMonth} borcu eklendi.`);
-                loadAdminView();
-            } catch (e) {
-                showMessage("aidatMessage", "Aidat güncellenemedi.", true);
-            }
-        }
         
         async function deleteAllDebts() {
             if (confirm("TÜM BORÇLAR SİLİNECEK! Bu işlem geri alınamaz. Emin misiniz?")) {
@@ -1176,38 +1183,54 @@
             const ayFilter = `${month} ${year}`;
             showMessage("adminTableMessage", `${ayFilter} için rapor oluşturuluyor...`, false);
             
-            const tableData = [];
+            const paidData = [];
+            const unpaidData = [];
+
             for(const daire of daireler) {
                 const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", ayFilter));
                 const debtSnapshot = await getDocs(q);
-                if(debtSnapshot.empty) {
-                    tableData.push([daire, "Kayıt Yok", "-", "-"]);
-                } else {
-                    debtSnapshot.forEach(doc => {
-                        const entry = doc.data();
-                        tableData.push([
-                            daire,
-                            entry.tip,
-                            `${entry.tutar} TL`,
-                            entry.odendi ? "Ödendi" : "Bekliyor"
-                        ]);
+                if(!debtSnapshot.empty) {
+                     debtSnapshot.forEach(d => {
+                        const entry = d.data();
+                        const row = [daire, entry.tip, `${entry.tutar} TL`];
+                        if(entry.odendi) {
+                            paidData.push(row);
+                        } else {
+                            unpaidData.push(row);
+                        }
                     });
                 }
             }
 
+            doc.setFontSize(18);
+            doc.text(`Aylık Borç Raporu - ${ayFilter}`, 105, 20, { align: "center" });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
+
             doc.autoTable({
-                head: [['Daire', 'Tip', 'Tutar', 'Durum']],
-                body: tableData,
-                didDrawPage: function (data) {
-                    doc.setFontSize(18);
-                    doc.text(`Aylık Borç Raporu - ${ayFilter}`, 105, 20, { align: "center" });
-                    doc.setFontSize(12);
-                    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
-                },
+                head: [['Daire', 'Tip', 'Tutar']],
+                body: paidData,
                 startY: 35,
                 theme: 'grid',
-                styles: { font: 'helvetica', fontSize: 10 }
+                headStyles: { fillColor: [40, 167, 69] },
+                didDrawPage: function (data) {
+                    doc.setFontSize(14);
+                    doc.text("Ödeme Yapanlar", data.settings.margin.left, data.cursor.y - 10);
+                },
             });
+            
+            doc.autoTable({
+                head: [['Daire', 'Tip', 'Tutar']],
+                body: unpaidData,
+                startY: doc.autoTable.previous.finalY + 20,
+                theme: 'grid',
+                 headStyles: { fillColor: [220, 53, 69] },
+                 didDrawPage: function (data) {
+                    doc.setFontSize(14);
+                    doc.text("Ödeme Yapmayanlar", data.settings.margin.left, data.cursor.y - 10);
+                },
+            });
+
 
             doc.save(`Aylik_Rapor_${month}_${year}.pdf`);
             showMessage("adminTableMessage", "PDF indirildi.");
@@ -1510,6 +1533,7 @@
                 document.getElementById("adminPanel").classList.remove("hidden");
                 fillFlatSelects();
                 fillExpenseFilters();
+                fillBorcEkleDateFilters();
                 updateAdminDateDisplay();
                 loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
                 await loadAdminView();
@@ -1525,7 +1549,6 @@
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
             document.getElementById('logoutBtnAdmin').addEventListener('click', logout);
             document.getElementById('saveProfileBtn').addEventListener('click', saveUserProfile);
-            document.getElementById('updateDuesBtn').addEventListener('click', updateAidatTutari);
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
             document.getElementById('prevMonthBtn').addEventListener('click', () => {
@@ -1549,10 +1572,11 @@
             document.getElementById('deleteAllDebtsBtn').addEventListener('click', deleteAllDebts);
             document.getElementById('savePasswordBtn').addEventListener('click', sifreAyarla);
             document.getElementById('saveAdminPasswordBtn').addEventListener('click', setAdminPassword);
-            document.getElementById('loginTerms').addEventListener('change', function() {
+            
+             document.getElementById('loginTerms').addEventListener('change', function() {
                 document.getElementById('loginButton').disabled = !this.checked;
             });
-            
+
             document.querySelectorAll('.collapsible-header').forEach(header => {
                 header.addEventListener('click', (event) => {
                     if (event.target.closest('.refresh-icon')) { return; }
