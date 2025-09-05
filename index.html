@@ -1224,8 +1224,8 @@
         
         async function downloadMonthlyReportPdf() {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            if (typeof doc.autoTable !== 'function') {
+            const pdfDoc = new jsPDF();
+            if (typeof pdfDoc.autoTable !== 'function') {
                 return showMessage("adminTableMessage", "PDF tablo eklentisi yüklenemedi.", true);
             }
             
@@ -1252,38 +1252,43 @@
                     });
                 }
             }
+            
+            pdfDoc.setFont('helvetica', 'normal');
 
-            doc.setFontSize(18);
-            doc.text(`Aylık Borç Raporu - ${ayFilter}`, 105, 20, { align: "center" });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
+            const title = `Aylık Borç Raporu - ${ayFilter}`;
+            const pageWidth = pdfDoc.internal.pageSize.getWidth();
+            pdfDoc.setFontSize(18);
+            pdfDoc.text(title, pageWidth / 2, 20, { align: 'center', maxWidth: pageWidth - 20 });
+            
+            pdfDoc.setFontSize(12);
+            pdfDoc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, pageWidth / 2, 28, { align: "center" });
 
-            doc.autoTable({
-                head: [['Daire', 'Tip', 'Tutar']],
+            pdfDoc.autoTable({
+                head: [
+                    [{ content: 'Ödeme Yapanlar', colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } }],
+                    ['Daire', 'Tip', 'Tutar']
+                ],
                 body: paidData,
-                startY: 35,
+                startY: 40,
                 theme: 'grid',
                 headStyles: { fillColor: [40, 167, 69] },
-                didDrawPage: function (data) {
-                    doc.setFontSize(14);
-                    doc.text("Ödeme Yapanlar", data.settings.margin.left, data.cursor.y - 10);
-                },
+                styles: { font: 'helvetica' },
             });
             
-            doc.autoTable({
-                head: [['Daire', 'Tip', 'Tutar']],
+            pdfDoc.autoTable({
+                head: [
+                    [{ content: 'Ödeme Yapmayanlar', colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } }],
+                    ['Daire', 'Tip', 'Tutar']
+                ],
                 body: unpaidData,
-                startY: doc.autoTable.previous.finalY + 20,
+                startY: pdfDoc.autoTable.previous.finalY + 15,
                 theme: 'grid',
-                 headStyles: { fillColor: [220, 53, 69] },
-                 didDrawPage: function (data) {
-                    doc.setFontSize(14);
-                    doc.text("Ödeme Yapmayanlar", data.settings.margin.left, data.cursor.y - 10);
-                },
+                headStyles: { fillColor: [220, 53, 69] },
+                styles: { font: 'helvetica' },
             });
 
 
-            doc.save(`Aylik_Rapor_${month}_${year}.pdf`);
+            pdfDoc.save(`Aylik_Rapor_${month}_${year}.pdf`);
             showMessage("adminTableMessage", "PDF indirildi.");
         }
 
@@ -1324,7 +1329,6 @@
                     return showMessage("adminTableMessage", `Seçilen daire için ${year} yılında kayıt bulunamadı.`, true);
                 }
 
-                // Sort data by month
                 debtData.sort((a, b) => {
                     const [ayA] = a.ay.split(' ');
                     const [ayB] = b.ay.split(' ');
@@ -1343,6 +1347,8 @@
                 const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', selectedDaire));
                 const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
                 const malik = `${userData.adi || ''} ${userData.soyadi || ''}`.trim();
+
+                pdfDoc.setFont('helvetica');
 
                 pdfDoc.setFontSize(18);
                 pdfDoc.text(`Hesap Ekstresi - ${year}`, 105, 20, { align: "center" });
@@ -1788,3 +1794,4 @@
   </script>
 </body>
 </html>
+
