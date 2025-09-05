@@ -339,6 +339,33 @@
         font-weight: bold;
         color: var(--text-color);
     }
+    .summary-cards-container {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+    .summary-card {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+        flex-grow: 1;
+        min-width: 150px;
+    }
+    .summary-card-title {
+        font-size: 1em;
+        color: #555;
+    }
+    .summary-card-value {
+        font-size: 2em;
+        font-weight: bold;
+    }
+    .paid { color: var(--success-color); }
+    .unpaid { color: var(--danger-color); }
+    .no-record { color: var(--text-color); }
   </style>
 </head>
 <body>
@@ -403,6 +430,7 @@
         <input type="text" id="phoneInput" placeholder="Telefon (5xx xxx xx xx)">
         <input type="email" id="mailInput" placeholder="E-posta Adresiniz">
         <button id="saveProfileBtn">Bilgileri Kaydet</button>
+        <button id="changePasswordBtn" class="edit-btn" style="margin-top: 10px;">Şifre Değiştir</button>
         <div id="profileMessage" class="message hidden"></div>
       </div>
       
@@ -426,20 +454,6 @@
 
     <div id="adminPanel" class="hidden">
       <h3>Yönetici Paneli</h3>
-      
-      <div class="section-divider"></div>
-      <button class="collapsible-header">
-        Daire Şifresi Ayarla
-      </button>
-      <div id="passwordSection" class="collapsible-content">
-        <select id="sifreDaire"></select>
-        <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
-        <button id="savePasswordBtn">Daire Şifresini Kaydet</button>
-        <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
-        <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
-        <button id="saveAdminPasswordBtn">Yönetici Şifresini Kaydet</button>
-        <div id="passwordMessage" class="message hidden"></div>
-      </div>
       
       <div class="section-divider"></div>
       <button class="collapsible-header">
@@ -474,10 +488,20 @@
         
         <div id="allApartmentsSummary" class="hidden">
             <h4 id="summaryChartTitle"></h4>
-            <div style="width: 100%; max-width: 400px; margin: auto;">
-                <canvas id="paymentStatusChart"></canvas>
+             <div class="summary-cards-container">
+                <div class="summary-card">
+                    <div class="summary-card-title">Ödeyen</div>
+                    <div id="paidCount" class="summary-card-value paid">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-card-title">Ödemeyen</div>
+                    <div id="unpaidCount" class="summary-card-value unpaid">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-card-title">Kayıt Yok</div>
+                    <div id="noRecordCount" class="summary-card-value no-record">0</div>
+                </div>
             </div>
-            <div id="summaryTotals" class="totals"></div>
         </div>
 
         <div id="singleApartmentView">
@@ -497,7 +521,7 @@
         <div class="section-divider"></div>
         <h4>Raporlar ve Toplu İşlemler</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-            <button id="downloadProfilesBtn" class="download-btn" style="flex-grow: 1;">Tüm Profilleri İndir (PDF)</button>
+            <button id="downloadStatementBtn" class="download-btn" style="flex-grow: 1;">Hesap Ekstresi İndir (PDF)</button>
             <button id="downloadMonthlyReportBtn" class="download-btn" style="flex-grow: 1;">Aylık Rapor İndir (PDF)</button>
         </div>
         <div style="margin-top: 15px;">
@@ -554,18 +578,21 @@
         </div>
         <div id="balanceMessage" class="message hidden"></div>
       </div>
-
+      
       <div class="section-divider"></div>
       <button class="collapsible-header">
-        Yedekleme ve Geri Yükleme
+        Daire Şifresi Ayarla
       </button>
-      <div id="backupSection" class="collapsible-content">
-        <button id="backupBtn">Verileri Yedekle (Bilgisayara İndir)</button>
-        <input type="file" id="backupFileInput" accept=".json" style="display: none;">
-        <button id="restoreBtn" class="upload-btn">Yedekten Yükle (Dosya Seç)</button>
-        <div id="backupRestoreMessage" class="message hidden"></div>
+      <div id="passwordSection" class="collapsible-content">
+        <select id="sifreDaire"></select>
+        <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
+        <button id="savePasswordBtn">Daire Şifresini Kaydet</button>
+        <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
+        <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
+        <button id="saveAdminPasswordBtn">Yönetici Şifresini Kaydet</button>
+        <div id="passwordMessage" class="message hidden"></div>
       </div>
-      
+
       <div class="section-divider"></div>
       <button id="deleteAllDebtsBtn" class="delete-btn">Tüm Dairelerin Tüm Borçlarını Sil</button>
       <button id="logoutBtnAdmin">Çıkış Yap</button>
@@ -583,6 +610,18 @@
         <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
         <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
       </div>
+    </div>
+  </div>
+
+  <div id="passwordChangeModal" class="modal">
+    <div class="modal-content">
+      <span id="passwordModalCloseBtn" class="modal-close">&times;</span>
+      <h4>Şifre Değiştir</h4>
+      <input type="password" id="currentPassword" placeholder="Mevcut Şifreniz">
+      <input type="password" id="newPassword" placeholder="Yeni Şifre">
+      <input type="password" id="confirmNewPassword" placeholder="Yeni Şifre (Tekrar)">
+      <button id="saveNewPasswordBtn">Yeni Şifreyi Kaydet</button>
+      <div id="changePasswordMessage" class="message hidden"></div>
     </div>
   </div>
 
@@ -755,6 +794,40 @@
             } catch (error) {
                 console.error("Profil kaydedilirken hata:", error);
                 showMessage("profileMessage", "Bilgiler kaydedilirken bir sorun oluştu.", true);
+            }
+        }
+
+        async function changeUserPassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+            if (!currentPassword || !newPassword || !confirmNewPassword) {
+                return showMessage('changePasswordMessage', 'Lütfen tüm alanları doldurun.', true);
+            }
+            if (newPassword.length < 3) {
+                return showMessage('changePasswordMessage', 'Yeni şifre en az 3 karakter olmalıdır.', true);
+            }
+            if (newPassword !== confirmNewPassword) {
+                return showMessage('changePasswordMessage', 'Yeni şifreler uyuşmuyor.', true);
+            }
+
+            try {
+                const userDocRef = doc(db, 'apartments', loggedInUsername);
+                const userDocSnap = await getDocFromFirestore(userDocRef);
+
+                if (userDocSnap.exists() && userDocSnap.data().password === currentPassword) {
+                    await updateDoc(userDocRef, { password: newPassword });
+                    showMessage('changePasswordMessage', 'Şifreniz başarıyla değiştirildi.');
+                    setTimeout(() => {
+                        document.getElementById('passwordChangeModal').style.display = 'none';
+                    }, 2000);
+                } else {
+                    showMessage('changePasswordMessage', 'Mevcut şifreniz yanlış.', true);
+                }
+            } catch (error) {
+                console.error('Şifre değiştirme hatası:', error);
+                showMessage('changePasswordMessage', 'Şifre değiştirilirken bir hata oluştu.', true);
             }
         }
         
@@ -989,46 +1062,24 @@
                     if (debtSnapshot.empty) {
                         noRecordCount++;
                     } else {
+                        let allPaid = true;
                         debtSnapshot.forEach(doc => {
-                            if (doc.data().odendi) {
-                                paidCount++;
-                            } else {
-                                unpaidCount++;
+                            if (!doc.data().odendi) {
+                                allPaid = false;
                             }
                         });
-                    }
-                }
-
-                document.getElementById('summaryTotals').textContent = `Ödeyen: ${paidCount} | Ödemeyen: ${unpaidCount} | Kayıt Yok: ${noRecordCount}`;
-
-                const ctx = document.getElementById('paymentStatusChart').getContext('2d');
-                if (paymentStatusChart) {
-                    paymentStatusChart.destroy();
-                }
-                paymentStatusChart = new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: ['Ödeyen', 'Ödemeyen', 'Kayıt Yok'],
-                        datasets: [{
-                            data: [paidCount, unpaidCount, noRecordCount],
-                             backgroundColor: ['var(--success-color)', 'var(--danger-color)', 'var(--border-color)'],
-                            borderColor: 'var(--container-bg)',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            title: {
-                                display: true,
-                                text: `${ayFilter} Genel Ödeme Durumu`
-                            }
+                        if (allPaid) {
+                            paidCount++;
+                        } else {
+                            unpaidCount++;
                         }
                     }
-                });
+                }
+
+                document.getElementById('paidCount').textContent = paidCount;
+                document.getElementById('unpaidCount').textContent = unpaidCount;
+                document.getElementById('noRecordCount').textContent = noRecordCount;
+
             } catch (error) {
                 console.error("Genel özet yüklenirken hata:", error);
                 showMessage("adminTableMessage", "Özet bilgileri yüklenemedi.", true);
@@ -1237,46 +1288,106 @@
         }
 
 
-        async function downloadAllProfilesPdf() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            if (typeof doc.autoTable !== 'function') {
-                return showMessage("adminTableMessage", "PDF tablo eklentisi yüklenemedi.", true);
+        async function downloadAccountStatementPdf() {
+            const selectedDaire = document.getElementById("flatSelect").value;
+            if (selectedDaire === 'all_apartments') {
+                return showMessage("adminTableMessage", "Lütfen belirli bir daire seçin.", true);
             }
-            
-            showMessage("adminTableMessage", "Tüm daire profilleri için PDF oluşturuluyor...", false);
 
-            const profileData = [];
-            for (const daire of daireler) {
-                const flatDocRef = doc(db, 'apartments', daire);
-                const flatDocSnap = await getDocFromFirestore(flatDocRef);
+            const year = currentAdminDate.getFullYear();
+            showMessage("adminTableMessage", `${selectedDaire} için ${year} yılı hesap ekstresi oluşturuluyor...`);
+
+            const { jsPDF } = window.jspdf;
+            const pdfDoc = new jsPDF();
+
+            const debtData = [];
+            let totalBorc = 0;
+            let totalOdenen = 0;
+
+            try {
+                const debtsCollectionRef = collection(db, 'apartments', selectedDaire, 'debts');
+                const debtSnapshot = await getDocs(debtsCollectionRef);
+
+                debtSnapshot.forEach(d => {
+                    const entry = d.data();
+                    const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
+                    if (parseInt(debtYearStr, 10) === year) {
+                        debtData.push(entry);
+                        totalBorc += Number(entry.tutar);
+                        if(entry.odendi) {
+                            totalOdenen += Number(entry.tutar);
+                        }
+                    }
+                });
+
+                if(debtData.length === 0) {
+                    return showMessage("adminTableMessage", `Seçilen daire için ${year} yılında kayıt bulunamadı.`, true);
+                }
+
+                // Sort data by month
+                debtData.sort((a, b) => {
+                    const [ayA] = a.ay.split(' ');
+                    const [ayB] = b.ay.split(' ');
+                    return aylar.indexOf(ayA) - aylar.indexOf(ayB);
+                });
+
+                const tableBody = debtData.map(entry => {
+                    return [
+                        entry.ay,
+                        entry.tip.charAt(0).toUpperCase() + entry.tip.slice(1),
+                        `${Number(entry.tutar).toFixed(2)} TL`,
+                        entry.odendi ? 'Ödendi' : 'Ödenmedi'
+                    ];
+                });
+
+                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', selectedDaire));
                 const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
-                
-                profileData.push([
-                    daire,
-                    `${userData.adi || 'N/A'} ${userData.soyadi || ''}`,
-                    `${userData.telefon || 'N/A'}`,
-                    `${userData.mail || 'N/A'}`
-                ]);
+                const malik = `${userData.adi || ''} ${userData.soyadi || ''}`.trim();
+
+                pdfDoc.setFontSize(18);
+                pdfDoc.text(`Hesap Ekstresi - ${year}`, 105, 20, { align: "center" });
+                pdfDoc.setFontSize(12);
+                pdfDoc.text(`Daire: ${selectedDaire}${malik ? ` (${malik})` : ''}`, 14, 30);
+                pdfDoc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 196, 30, { align: 'right' });
+
+
+                pdfDoc.autoTable({
+                    head: [['Ay', 'Açıklama', 'Tutar', 'Durum']],
+                    body: tableBody,
+                    startY: 40,
+                    theme: 'grid',
+                    styles: { font: 'helvetica', fontSize: 10 },
+                    headStyles: { fillColor: [1, 79, 134] },
+                    didParseCell: function(data) {
+                        if (data.section === 'body' && data.column.index === 3) {
+                            if (data.cell.raw === 'Ödenmedi') {
+                                data.cell.styles.textColor = [220, 53, 69];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else if (data.cell.raw === 'Ödendi') {
+                                 data.cell.styles.textColor = [40, 167, 69];
+                            }
+                        }
+                    }
+                });
+
+                let finalY = pdfDoc.autoTable.previous.finalY;
+                pdfDoc.setFontSize(12);
+                pdfDoc.text(`Yıllık Toplam Borç: ${totalBorc.toFixed(2)} TL`, 14, finalY + 10);
+                pdfDoc.text(`Yıllık Toplam Ödenen: ${totalOdenen.toFixed(2)} TL`, 14, finalY + 17);
+                pdfDoc.setFontSize(14);
+                pdfDoc.setFont(undefined, 'bold');
+                pdfDoc.text(`Kalan Bakiye: ${(totalBorc - totalOdenen).toFixed(2)} TL`, 14, finalY + 25);
+
+
+                const filename = `Hesap_Ekstresi_${selectedDaire}_${year}.pdf`;
+                pdfDoc.save(filename);
+                showMessage("adminTableMessage", "Hesap ekstresi PDF olarak indirildi.");
+
+
+            } catch (error) {
+                console.error("Hesap ekstresi oluşturulurken hata:", error);
+                showMessage("adminTableMessage", "PDF oluşturulurken bir hata oluştu.", true);
             }
-            
-            doc.autoTable({
-                head: [['Daire', 'Adı Soyadı', 'Telefon', 'E-posta']],
-                body: profileData,
-                didDrawPage: function (data) {
-                    doc.setFontSize(18);
-                    doc.text("Ayvalık Yıldız Konakları - Daire Sahipleri Profilleri", 105, 20, { align: "center" });
-                    doc.setFontSize(12);
-                    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
-                },
-                startY: 35,
-                theme: 'grid',
-                styles: { font: 'helvetica', fontSize: 10, cellPadding: 3 }
-            });
-            
-            const filename = `Daire_Profilleri_${new Date().toLocaleDateString('tr-TR')}.pdf`;
-            doc.save(filename);
-            showMessage("adminTableMessage", "Daire profilleri PDF dosyası başarıyla indirildi.");
         }
 
         function downloadProfileTemplate() {
@@ -1339,9 +1450,6 @@
             reader.readAsText(file, 'UTF-8');
             event.target.value = '';
         }
-
-        async function backupData() { /* ... */ }
-        async function restoreData(event) { /* ... */ }
 
         async function saveExpense() {
             const dateInput = document.getElementById("expenseDateInput").value;
@@ -1549,6 +1657,11 @@
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
             document.getElementById('logoutBtnAdmin').addEventListener('click', logout);
             document.getElementById('saveProfileBtn').addEventListener('click', saveUserProfile);
+            document.getElementById('changePasswordBtn').addEventListener('click', () => {
+                document.getElementById('passwordChangeModal').style.display = 'block';
+            });
+            document.getElementById('saveNewPasswordBtn').addEventListener('click', changeUserPassword);
+
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
             document.getElementById('prevMonthBtn').addEventListener('click', () => {
@@ -1560,7 +1673,7 @@
                 updateAdminDateDisplay();
             });
 
-            document.getElementById('downloadProfilesBtn').addEventListener('click', downloadAllProfilesPdf);
+            document.getElementById('downloadStatementBtn').addEventListener('click', downloadAccountStatementPdf);
             document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
@@ -1619,6 +1732,16 @@
                     modal.style.display = 'none';
                 }
             });
+            
+            const passwordModal = document.getElementById('passwordChangeModal');
+            document.getElementById('passwordModalCloseBtn').addEventListener('click', () => {
+                passwordModal.style.display = 'none';
+            });
+             window.addEventListener('click', (event) => {
+                if (event.target == passwordModal) {
+                    passwordModal.style.display = 'none';
+                }
+            });
         }
 
         async function sifreAyarla() {
@@ -1665,4 +1788,3 @@
   </script>
 </body>
 </html>
-
