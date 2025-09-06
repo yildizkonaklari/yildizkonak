@@ -339,33 +339,76 @@
         font-weight: bold;
         color: var(--text-color);
     }
-    .summary-cards-container {
-        display: flex;
+    .all-apartments-summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 15px;
-        justify-content: center;
-        margin-top: 20px;
-        flex-wrap: wrap;
+        padding: 10px 0;
     }
     .summary-card {
         background-color: #fff;
-        padding: 20px;
         border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 20px;
         text-align: center;
-        flex-grow: 1;
-        min-width: 150px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        border-left: 5px solid;
     }
+    .summary-card.paid { border-color: var(--success-color); }
+    .summary-card.unpaid { border-color: var(--danger-color); }
+    .summary-card.no-record { border-color: var(--border-color); }
     .summary-card-title {
         font-size: 1em;
-        color: #555;
+        color: #666;
+        margin-bottom: 8px;
     }
     .summary-card-value {
-        font-size: 2em;
+        font-size: 2.5em;
         font-weight: bold;
     }
-    .paid { color: var(--success-color); }
-    .unpaid { color: var(--danger-color); }
-    .no-record { color: var(--text-color); }
+    .summary-card.paid .summary-card-value { color: var(--success-color); }
+    .summary-card.unpaid .summary-card-value { color: var(--danger-color); }
+    .summary-card.no-record .summary-card-value { color: var(--text-color); }
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        padding: 10px 0;
+    }
+    .dashboard-card {
+        background-color: #fff;
+        border: 1px solid var(--border-color);
+        border-left: 5px solid var(--primary-color);
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .dashboard-card-title {
+        font-size: 0.9em;
+        color: #555;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .dashboard-card-value {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    #applyLateFeeBtn {
+        background-color: var(--info-color);
+    }
+    #applyLateFeeBtn:hover:not(:disabled) {
+        background-color: var(--info-hover);
+    }
+    #applyLateFeeBtn.active {
+        background-color: var(--danger-color);
+    }
+    #applyLateFeeBtn.active:hover:not(:disabled) {
+        background-color: var(--danger-hover);
+    }
   </style>
 </head>
 <body>
@@ -430,7 +473,7 @@
         <input type="text" id="phoneInput" placeholder="Telefon (5xx xxx xx xx)">
         <input type="email" id="mailInput" placeholder="E-posta Adresiniz">
         <button id="saveProfileBtn">Bilgileri Kaydet</button>
-        <button id="changePasswordBtn" class="edit-btn" style="margin-top: 10px;">Şifre Değiştir</button>
+        <button id="changePasswordBtn" class="info-btn" style="margin-top:10px;">Şifre Değiştir</button>
         <div id="profileMessage" class="message hidden"></div>
       </div>
       
@@ -455,6 +498,31 @@
     <div id="adminPanel" class="hidden">
       <h3>Yönetici Paneli</h3>
       
+      <button class="collapsible-header active">
+        <span>Gösterge Paneli</span>
+        <span id="refreshDashboardBtn" class="refresh-icon" title="Paneli Yenile">↻</span>
+      </button>
+      <div id="adminDashboard" class="collapsible-content active" style="max-height: 500px;">
+        <div class="dashboard-grid">
+            <div class="dashboard-card">
+                <span class="dashboard-card-title">Toplam Kasa Bakiyesi</span>
+                <span id="dashboardTotalBalance" class="dashboard-card-value">...</span>
+            </div>
+            <div class="dashboard-card">
+                <span class="dashboard-card-title">Bu Ayki Gelir</span>
+                <span id="dashboardMonthlyIncome" class="dashboard-card-value">...</span>
+            </div>
+            <div class="dashboard-card">
+                <span class="dashboard-card-title">Bu Ayki Gider</span>
+                <span id="dashboardMonthlyExpense" class="dashboard-card-value">...</span>
+            </div>
+            <div class="dashboard-card">
+                <span class="dashboard-card-title">Bu Ay Ödemeyen Daire</span>
+                <span id="dashboardUnpaidCount" class="dashboard-card-value">...</span>
+            </div>
+        </div>
+      </div>
+      
       <div class="section-divider"></div>
       <button class="collapsible-header">
         Aidat-Avans Ekle
@@ -471,6 +539,7 @@
         <input type="number" id="borcTutar" placeholder="Tutar (₺)">
         <select id="borcKime"></select>
         <button id="addDebtBtn">Borç Ekle</button>
+        <button id="applyLateFeeBtn" style="margin-top: 10px;">%5 Gecikme Faizi Uygula</button>
         <div id="addDebtMessage" class="message hidden"></div>
       </div>
 
@@ -487,19 +556,19 @@
         </div>
         
         <div id="allApartmentsSummary" class="hidden">
-            <h4 id="summaryChartTitle"></h4>
-             <div class="summary-cards-container">
-                <div class="summary-card">
+            <h4 id="summaryTitle"></h4>
+            <div class="all-apartments-summary-cards">
+                <div class="summary-card paid">
                     <div class="summary-card-title">Ödeyen</div>
-                    <div id="paidCount" class="summary-card-value paid">0</div>
+                    <div id="paidCount" class="summary-card-value">0</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card unpaid">
                     <div class="summary-card-title">Ödemeyen</div>
-                    <div id="unpaidCount" class="summary-card-value unpaid">0</div>
+                    <div id="unpaidCount" class="summary-card-value">0</div>
                 </div>
-                <div class="summary-card">
+                <div class="summary-card no-record">
                     <div class="summary-card-title">Kayıt Yok</div>
-                    <div id="noRecordCount" class="summary-card-value no-record">0</div>
+                    <div id="noRecordCount" class="summary-card-value">0</div>
                 </div>
             </div>
         </div>
@@ -521,7 +590,7 @@
         <div class="section-divider"></div>
         <h4>Raporlar ve Toplu İşlemler</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-            <button id="downloadStatementBtn" class="download-btn" style="flex-grow: 1;">Hesap Ekstresi İndir (PDF)</button>
+             <button id="downloadAccountStatementBtn" class="download-btn" style="flex-grow: 1;">Hesap Ekstresi İndir (PDF)</button>
             <button id="downloadMonthlyReportBtn" class="download-btn" style="flex-grow: 1;">Aylık Rapor İndir (PDF)</button>
         </div>
         <div style="margin-top: 15px;">
@@ -566,7 +635,7 @@
       <div class="section-divider"></div>
       <button id="balanceSectionHeader" class="collapsible-header">
         <span>Bakiye Durumu</span>
-        <span id="refreshBalanceBtn" class="refresh-icon" title="Bakiyeyi Yenile">&#x21bb;</span>
+        <span id="refreshBalanceBtn" class="refresh-icon" title="Bakiyeyi Yenile">↻</span>
       </button>
       <div id="balanceSection" class="collapsible-content">
         <h4>Genel Bakiye Durumu</h4>
@@ -610,18 +679,6 @@
         <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
         <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
       </div>
-    </div>
-  </div>
-
-  <div id="passwordChangeModal" class="modal">
-    <div class="modal-content">
-      <span id="passwordModalCloseBtn" class="modal-close">&times;</span>
-      <h4>Şifre Değiştir</h4>
-      <input type="password" id="currentPassword" placeholder="Mevcut Şifreniz">
-      <input type="password" id="newPassword" placeholder="Yeni Şifre">
-      <input type="password" id="confirmNewPassword" placeholder="Yeni Şifre (Tekrar)">
-      <button id="saveNewPasswordBtn">Yeni Şifreyi Kaydet</button>
-      <div id="changePasswordMessage" class="message hidden"></div>
     </div>
   </div>
 
@@ -796,38 +853,34 @@
                 showMessage("profileMessage", "Bilgiler kaydedilirken bir sorun oluştu.", true);
             }
         }
-
+        
         async function changeUserPassword() {
-            const currentPassword = document.getElementById('currentPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
-
-            if (!currentPassword || !newPassword || !confirmNewPassword) {
-                return showMessage('changePasswordMessage', 'Lütfen tüm alanları doldurun.', true);
-            }
-            if (newPassword.length < 3) {
-                return showMessage('changePasswordMessage', 'Yeni şifre en az 3 karakter olmalıdır.', true);
-            }
-            if (newPassword !== confirmNewPassword) {
-                return showMessage('changePasswordMessage', 'Yeni şifreler uyuşmuyor.', true);
-            }
+            const currentPassword = prompt("Mevcut şifrenizi girin:");
+            if (currentPassword === null) return;
 
             try {
-                const userDocRef = doc(db, 'apartments', loggedInUsername);
-                const userDocSnap = await getDocFromFirestore(userDocRef);
-
-                if (userDocSnap.exists() && userDocSnap.data().password === currentPassword) {
-                    await updateDoc(userDocRef, { password: newPassword });
-                    showMessage('changePasswordMessage', 'Şifreniz başarıyla değiştirildi.');
-                    setTimeout(() => {
-                        document.getElementById('passwordChangeModal').style.display = 'none';
-                    }, 2000);
-                } else {
-                    showMessage('changePasswordMessage', 'Mevcut şifreniz yanlış.', true);
+                const userDoc = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
+                if (!userDoc.exists() || userDoc.data().password !== currentPassword) {
+                    return showMessage("profileMessage", "Mevcut şifre hatalı.", true);
                 }
+
+                const newPassword = prompt("Yeni şifrenizi girin (en az 3 karakter):");
+                if (newPassword === null) return;
+                if (newPassword.length < 3) {
+                    return showMessage("profileMessage", "Yeni şifre en az 3 karakter olmalı.", true);
+                }
+                
+                const newPasswordConfirm = prompt("Yeni şifrenizi tekrar girin:");
+                 if (newPassword !== newPasswordConfirm) {
+                    return showMessage("profileMessage", "Şifreler eşleşmiyor.", true);
+                }
+
+                await updateDoc(doc(db, 'apartments', loggedInUsername), { password: newPassword });
+                showMessage("profileMessage", "Şifreniz başarıyla değiştirildi.");
+
             } catch (error) {
-                console.error('Şifre değiştirme hatası:', error);
-                showMessage('changePasswordMessage', 'Şifre değiştirilirken bir hata oluştu.', true);
+                console.error("Şifre değiştirilirken hata:", error);
+                showMessage("profileMessage", "Şifre değiştirilirken bir hata oluştu.", true);
             }
         }
         
@@ -1049,33 +1102,29 @@
             const year = currentAdminDate.getFullYear();
             const ayFilter = `${month} ${year}`;
             
-            document.getElementById('summaryChartTitle').textContent = `${ayFilter} Ödeme Durumu`;
+            document.getElementById('summaryTitle').textContent = `${ayFilter} Ödeme Durumu`;
 
             let paidCount = 0;
             let unpaidCount = 0;
-            let noRecordCount = 0;
+            let noRecordCount = daireler.length;
 
             try {
                 for (const daire of daireler) {
                     const q = query(collection(db, 'apartments', daire, 'debts'), where("ay", "==", ayFilter));
                     const debtSnapshot = await getDocs(q);
-                    if (debtSnapshot.empty) {
-                        noRecordCount++;
-                    } else {
-                        let allPaid = true;
+                    if (!debtSnapshot.empty) {
+                        noRecordCount--; 
+                        let hasUnpaid = false;
                         debtSnapshot.forEach(doc => {
                             if (!doc.data().odendi) {
-                                allPaid = false;
+                                hasUnpaid = true;
                             }
                         });
-                        if (allPaid) {
-                            paidCount++;
-                        } else {
-                            unpaidCount++;
-                        }
+                        if(hasUnpaid) unpaidCount++;
+                        else paidCount++;
                     }
                 }
-
+                
                 document.getElementById('paidCount').textContent = paidCount;
                 document.getElementById('unpaidCount').textContent = unpaidCount;
                 document.getElementById('noRecordCount').textContent = noRecordCount;
@@ -1457,6 +1506,9 @@
             event.target.value = '';
         }
 
+        async function backupData() { /* ... */ }
+        async function restoreData(event) { /* ... */ }
+
         async function saveExpense() {
             const dateInput = document.getElementById("expenseDateInput").value;
             const name = document.getElementById("expenseNameInput").value.trim();
@@ -1562,6 +1614,108 @@
             document.getElementById("remainingBalance").textContent = `${balance.toFixed(2)} TL`;
             document.getElementById("remainingBalance").style.color = balance < 0 ? 'var(--danger-color)' : 'var(--success-color)';
         }
+        
+        async function updateAdminDashboard() {
+            const currentDate = new Date();
+            const currentMonth = aylar[currentDate.getMonth()];
+            const currentYear = currentDate.getFullYear();
+            
+            let totalIncomeAll = 0, totalExpenseAll = 0, monthlyIncome = 0, monthlyExpense = 0;
+            const unpaidApartments = new Set();
+            
+            for (const daire of daireler) {
+                const debtsSnapshot = await getDocs(collection(db, 'apartments', daire, 'debts'));
+                debtsSnapshot.forEach(d => {
+                    const debt = d.data();
+                    if (debt.odendi) {
+                        totalIncomeAll += Number(debt.tutar);
+                    }
+                    if (debt.ay === `${currentMonth} ${currentYear}`) {
+                         if (debt.odendi) {
+                            monthlyIncome += Number(debt.tutar);
+                         } else {
+                            unpaidApartments.add(daire);
+                         }
+                    }
+                });
+            }
+            
+            const expensesSnapshot = await getDocs(collection(db, 'expenses'));
+            expensesSnapshot.forEach(d => {
+                const expense = d.data();
+                totalExpenseAll += Number(expense.tutar);
+                if (expense.tarih_ay === currentMonth && expense.tarih_yil === currentYear) {
+                    monthlyExpense += Number(expense.tutar);
+                }
+            });
+            
+            const totalBalance = totalIncomeAll - totalExpenseAll;
+
+            document.getElementById('dashboardTotalBalance').textContent = `₺${totalBalance.toFixed(2)}`;
+            document.getElementById('dashboardMonthlyIncome').textContent = `₺${monthlyIncome.toFixed(2)}`;
+            document.getElementById('dashboardMonthlyExpense').textContent = `₺${monthlyExpense.toFixed(2)}`;
+            document.getElementById('dashboardUnpaidCount').textContent = unpaidApartments.size;
+        }
+
+        async function applyLateFees() {
+            if (!confirm("Geçmiş aylara ait ödenmemiş tüm borçlara %5 gecikme faizi uygulanacaktır. Bu işlem geri alınamaz. Emin misiniz?")) {
+                return;
+            }
+            
+            showMessage("addDebtMessage", "Gecikme faizleri hesaplanıyor ve uygulanıyor...", false);
+
+            const currentDate = new Date();
+            const currentMonthIndex = currentDate.getMonth();
+            const currentYear = currentDate.getFullYear();
+            const currentAy = `${aylar[currentMonthIndex]} ${currentYear}`;
+            
+            const batch = writeBatch(db);
+            let feeAppliedCount = 0;
+
+            try {
+                for (const daire of daireler) {
+                    const debtsRef = collection(db, 'apartments', daire, 'debts');
+                    const q = query(debtsRef, where("odendi", "==", false), where("gecikmeFaiziUygulandi", "!=", true));
+                    const unpaidDebtsSnap = await getDocs(q);
+
+                    unpaidDebtsSnap.forEach(debtDoc => {
+                        const debt = debtDoc.data();
+                        const [debtMonthStr, debtYearStr] = debt.ay.split(' ');
+                        const debtYear = parseInt(debtYearStr, 10);
+                        const debtMonthIndex = aylar.indexOf(debtMonthStr);
+
+                        const isPastDue = debtYear < currentYear || (debtYear === currentYear && debtMonthIndex < currentMonthIndex);
+
+                        if (isPastDue) {
+                            const lateFee = Number(debt.tutar) * 0.05;
+                            const newFeeRef = doc(collection(db, 'apartments', daire, 'debts'));
+                            batch.set(newFeeRef, {
+                                ay: currentAy,
+                                tutar: parseFloat(lateFee.toFixed(2)),
+                                tip: 'gecikme-faizi',
+                                odendi: false,
+                                aciklama: `${debt.ay} borcu için gecikme bedeli`
+                            });
+                            
+                            batch.update(debtDoc.ref, { gecikmeFaiziUygulandi: true });
+                            feeAppliedCount++;
+                        }
+                    });
+                }
+
+                if (feeAppliedCount > 0) {
+                    await batch.commit();
+                    showMessage("addDebtMessage", `${feeAppliedCount} adet borca gecikme faizi başarıyla uygulandı.`);
+                } else {
+                    showMessage("addDebtMessage", "Gecikme faizi uygulanacak yeni borç bulunamadı.", true);
+                }
+                await updateAdminDashboard();
+            } catch (error) {
+                console.error("Gecikme faizi uygulanırken hata:", error);
+                showMessage("addDebtMessage", "İşlem sırasında bir hata oluştu.", true);
+            }
+        }
+
 
         async function downloadAllExpensesPdf() {
             showMessage("expenseMessage", "Tüm giderler için PDF oluşturuluyor...", false);
@@ -1650,6 +1804,7 @@
                 fillBorcEkleDateFilters();
                 updateAdminDateDisplay();
                 loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
+                await updateAdminDashboard();
                 await loadAdminView();
             } catch(error) {
                 console.error("Admin paneli kurulurken hata:", error);
@@ -1663,12 +1818,9 @@
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
             document.getElementById('logoutBtnAdmin').addEventListener('click', logout);
             document.getElementById('saveProfileBtn').addEventListener('click', saveUserProfile);
-            document.getElementById('changePasswordBtn').addEventListener('click', () => {
-                document.getElementById('passwordChangeModal').style.display = 'block';
-            });
-            document.getElementById('saveNewPasswordBtn').addEventListener('click', changeUserPassword);
-
+            document.getElementById('changePasswordBtn').addEventListener('click', changeUserPassword);
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
+            document.getElementById('applyLateFeeBtn').addEventListener('click', applyLateFees);
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
             document.getElementById('prevMonthBtn').addEventListener('click', () => {
                 currentAdminDate.setMonth(currentAdminDate.getMonth() - 1);
@@ -1679,7 +1831,7 @@
                 updateAdminDateDisplay();
             });
 
-            document.getElementById('downloadStatementBtn').addEventListener('click', downloadAccountStatementPdf);
+            document.getElementById('downloadAccountStatementBtn').addEventListener('click', downloadAccountStatementPdf);
             document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
@@ -1710,6 +1862,7 @@
             });
             
             document.getElementById('refreshBalanceBtn').addEventListener('click', calculateAndShowBalance);
+            document.getElementById('refreshDashboardBtn').addEventListener('click', updateAdminDashboard);
 
             document.getElementById('adminPanel').addEventListener('click', function(event) {
                 const target = event.target.closest('.admin-action-btn');
@@ -1736,16 +1889,6 @@
             window.addEventListener('click', (event) => {
                 if (event.target == modal) {
                     modal.style.display = 'none';
-                }
-            });
-            
-            const passwordModal = document.getElementById('passwordChangeModal');
-            document.getElementById('passwordModalCloseBtn').addEventListener('click', () => {
-                passwordModal.style.display = 'none';
-            });
-             window.addEventListener('click', (event) => {
-                if (event.target == passwordModal) {
-                    passwordModal.style.display = 'none';
                 }
             });
         }
