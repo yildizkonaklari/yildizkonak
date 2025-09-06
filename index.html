@@ -397,17 +397,79 @@
         font-weight: bold;
         color: var(--primary-color);
     }
-    #applyLateFeeBtn {
-        background-color: var(--info-color);
+    .setting-toggle-container {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: #fdfdfd;
     }
-    #applyLateFeeBtn:hover:not(:disabled) {
-        background-color: var(--info-hover);
+    .toggle-label-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
     }
-    #applyLateFeeBtn.active {
-        background-color: var(--danger-color);
+    .toggle-switch-label {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: var(--primary-color);
     }
-    #applyLateFeeBtn.active:hover:not(:disabled) {
-        background-color: var(--danger-hover);
+    .setting-description {
+        font-size: 0.9em;
+        color: #555;
+        margin: 5px 0;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+    input:checked + .slider {
+      background-color: var(--success-color);
+    }
+    input:focus + .slider {
+      box-shadow: 0 0 1px var(--success-color);
+    }
+    input:checked + .slider:before {
+      -webkit-transform: translateX(26px);
+      -ms-transform: translateX(26px);
+      transform: translateX(26px);
+    }
+    .slider.round {
+      border-radius: 34px;
+    }
+    .slider.round:before {
+      border-radius: 50%;
     }
   </style>
 </head>
@@ -539,8 +601,23 @@
         <input type="number" id="borcTutar" placeholder="Tutar (₺)">
         <select id="borcKime"></select>
         <button id="addDebtBtn">Borç Ekle</button>
-        <button id="applyLateFeeBtn" style="margin-top: 10px;">%5 Gecikme Faizi Uygula</button>
         <div id="addDebtMessage" class="message hidden"></div>
+
+        <div class="setting-toggle-container">
+            <div class="toggle-label-group">
+                <label for="lateFeeToggle" class="toggle-switch-label">Gecikme Tazminatı</label>
+                <label class="toggle-switch">
+                <input type="checkbox" id="lateFeeToggle">
+                <span class="slider round"></span>
+                </label>
+            </div>
+            <p class="setting-description">
+                Sistem genelinde, vadesi geçen borçlara gecikme tazminatı uygulanmasını istiyorsanız aktif ediniz.
+            </p>
+            <p class="setting-description">
+                <strong>Son Etkinleştirme Tarihi:</strong> <span id="lastLateFeeActivationDate">Hiçbir zaman</span>
+            </p>
+        </div>
       </div>
 
       <div class="section-divider"></div>
@@ -599,6 +676,7 @@
                 <button id="downloadTemplateBtn" class="info-btn" style="flex-grow: 1;">Şablon İndir (.csv)</button>
                 <input type="file" id="profileTemplateInput" accept=".csv" style="display: none;">
                 <button id="uploadTemplateBtn" class="upload-btn" style="flex-grow: 1;">Şablon Yükle (.csv)</button>
+                <button id="downloadAllProfilesCsvBtn" class="download-btn" style="flex-grow: 1;">Tüm Profilleri İndir (Excel)</button>
             </div>
         </div>
       </div>
@@ -1461,6 +1539,43 @@
             showMessage("adminTableMessage", "Profil şablonu indirildi.");
         }
 
+        async function downloadAllProfilesCsv() {
+            showMessage("adminTableMessage", "Tüm profiller indiriliyor...", false);
+            const headers = "Daire;Adı Soyadı;Telefon;Mail"; // Use semicolon for better Excel compatibility
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + "\n";
+
+            try {
+                const profileData = [];
+                for (const daire of daireler) {
+                    const flatDocRef = doc(db, 'apartments', daire);
+                    const flatDocSnap = await getDocFromFirestore(flatDocRef);
+                    const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
+                    
+                    const adi = userData.adi || '';
+                    const soyadi = userData.soyadi || '';
+                    const adSoyad = `${adi} ${soyadi}`.trim();
+                    const telefon = userData.telefon || '';
+                    const mail = userData.mail || '';
+                    
+                    profileData.push([daire, adSoyad, telefon, mail].join(';'));
+                }
+
+                csvContent += profileData.join('\n');
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "tum_profil_bilgileri.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showMessage("adminTableMessage", "Tüm profiller başarıyla indirildi.");
+            } catch (error) {
+                console.error("Profiller indirilirken hata:", error);
+                showMessage("adminTableMessage", "Profiller indirilirken bir hata oluştu.", true);
+            }
+        }
+
         async function uploadProfileTemplate(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1657,12 +1772,8 @@
             document.getElementById('dashboardUnpaidCount').textContent = unpaidApartments.size;
         }
 
-        async function applyLateFees() {
-            if (!confirm("Geçmiş aylara ait ödenmemiş tüm borçlara %5 gecikme faizi uygulanacaktır. Bu işlem geri alınamaz. Emin misiniz?")) {
-                return;
-            }
-            
-            showMessage("addDebtMessage", "Gecikme faizleri hesaplanıyor ve uygulanıyor...", false);
+        async function applyLateCompensation() {
+            showMessage("addDebtMessage", "Gecikme tazminatları hesaplanıyor ve uygulanıyor...", false);
 
             const currentDate = new Date();
             const currentMonthIndex = currentDate.getMonth();
@@ -1675,11 +1786,16 @@
             try {
                 for (const daire of daireler) {
                     const debtsRef = collection(db, 'apartments', daire, 'debts');
-                    const q = query(debtsRef, where("odendi", "==", false), where("gecikmeFaiziUygulandi", "!=", true));
+                    const q = query(debtsRef, where("odendi", "==", false));
                     const unpaidDebtsSnap = await getDocs(q);
 
                     unpaidDebtsSnap.forEach(debtDoc => {
                         const debt = debtDoc.data();
+                        
+                        if (debt.gecikmeTazminatiUygulandi === true) {
+                            return; 
+                        }
+
                         const [debtMonthStr, debtYearStr] = debt.ay.split(' ');
                         const debtYear = parseInt(debtYearStr, 10);
                         const debtMonthIndex = aylar.indexOf(debtMonthStr);
@@ -1692,12 +1808,12 @@
                             batch.set(newFeeRef, {
                                 ay: currentAy,
                                 tutar: parseFloat(lateFee.toFixed(2)),
-                                tip: 'gecikme-faizi',
+                                tip: 'gecikme-tazminati',
                                 odendi: false,
-                                aciklama: `${debt.ay} borcu için gecikme bedeli`
+                                aciklama: `${debt.ay} borcu için gecikme tazminatı`
                             });
                             
-                            batch.update(debtDoc.ref, { gecikmeFaiziUygulandi: true });
+                            batch.update(debtDoc.ref, { gecikmeTazminatiUygulandi: true });
                             feeAppliedCount++;
                         }
                     });
@@ -1705,14 +1821,60 @@
 
                 if (feeAppliedCount > 0) {
                     await batch.commit();
-                    showMessage("addDebtMessage", `${feeAppliedCount} adet borca gecikme faizi başarıyla uygulandı.`);
+                    showMessage("addDebtMessage", `${feeAppliedCount} adet borca gecikme tazminatı başarıyla uygulandı.`);
                 } else {
-                    showMessage("addDebtMessage", "Gecikme faizi uygulanacak yeni borç bulunamadı.", true);
+                    showMessage("addDebtMessage", "Gecikme tazminatı uygulanacak yeni borç bulunamadı.");
                 }
                 await updateAdminDashboard();
+                return true;
             } catch (error) {
-                console.error("Gecikme faizi uygulanırken hata:", error);
+                console.error("Gecikme tazminatı uygulanırken hata:", error);
                 showMessage("addDebtMessage", "İşlem sırasında bir hata oluştu.", true);
+                return false;
+            }
+        }
+        
+        async function loadLateFeeSettings() {
+            try {
+                const settingsDoc = await getDocFromFirestore(doc(db, 'settings', 'lateFee'));
+                if (settingsDoc.exists()) {
+                    const data = settingsDoc.data();
+                    document.getElementById('lateFeeToggle').checked = data.enabled || false;
+                    if (data.lastEnabled) {
+                        const date = new Date(data.lastEnabled.seconds * 1000);
+                        document.getElementById('lastLateFeeActivationDate').textContent = date.toLocaleString('tr-TR');
+                    } else {
+                         document.getElementById('lastLateFeeActivationDate').textContent = 'Hiçbir zaman';
+                    }
+                }
+            } catch (error) {
+                console.error("Gecikme tazminatı ayarları yüklenirken hata:", error);
+            }
+        }
+        
+        async function handleLateFeeToggle(event) {
+            const isEnabled = event.target.checked;
+            const toggle = event.target;
+
+            if (isEnabled) {
+                if (confirm("Gecikme tazminatı sistemini etkinleştirmek istediğinizden emin misiniz? Bu işlem, vadesi geçmiş ve ödenmemiş tüm borçlara %5 tazminat uygulayacaktır.")) {
+                    const success = await applyLateCompensation();
+                    if (success) {
+                        await setDoc(doc(db, 'settings', 'lateFee'), { enabled: true, lastEnabled: new Date() }, { merge: true });
+                        await loadLateFeeSettings();
+                    } else {
+                        toggle.checked = false;
+                    }
+                } else {
+                    toggle.checked = false;
+                }
+            } else {
+                if (confirm("Gecikme tazminatı sistemini devre dışı bırakmak istediğinizden emin misiniz?")) {
+                    await setDoc(doc(db, 'settings', 'lateFee'), { enabled: false }, { merge: true });
+                    showMessage("addDebtMessage", "Gecikme tazminatı sistemi devre dışı bırakıldı.");
+                } else {
+                    toggle.checked = true;
+                }
             }
         }
 
@@ -1805,6 +1967,7 @@
                 updateAdminDateDisplay();
                 loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value);
                 await updateAdminDashboard();
+                await loadLateFeeSettings();
                 await loadAdminView();
             } catch(error) {
                 console.error("Admin paneli kurulurken hata:", error);
@@ -1820,7 +1983,7 @@
             document.getElementById('saveProfileBtn').addEventListener('click', saveUserProfile);
             document.getElementById('changePasswordBtn').addEventListener('click', changeUserPassword);
             document.getElementById('addDebtBtn').addEventListener('click', ekleBorc);
-            document.getElementById('applyLateFeeBtn').addEventListener('click', applyLateFees);
+            document.getElementById('lateFeeToggle').addEventListener('change', handleLateFeeToggle);
             document.getElementById('flatSelect').addEventListener('change', loadAdminView);
             document.getElementById('prevMonthBtn').addEventListener('click', () => {
                 currentAdminDate.setMonth(currentAdminDate.getMonth() - 1);
@@ -1836,6 +1999,7 @@
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
             document.getElementById('profileTemplateInput').addEventListener('change', uploadProfileTemplate);
+            document.getElementById('downloadAllProfilesCsvBtn').addEventListener('click', downloadAllProfilesCsv);
             document.getElementById('saveExpenseBtn').addEventListener('click', saveExpense);
             document.getElementById('filterExpensesBtn').addEventListener('click', () => loadAdminExpensesTable(document.getElementById('expenseMonthFilter').value, document.getElementById('expenseYearFilter').value));
             document.getElementById('publishButton').addEventListener('click', toggleExpensesVisibility);
