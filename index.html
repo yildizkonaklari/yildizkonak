@@ -1067,7 +1067,8 @@
 
         <div class="modal-actions">
             <button id="editApartmentDetailBtn" class="edit-btn">Düzenle</button>
-            <button id="printApartmentDetailBtn" class="info-btn">Yazdır</button>
+            <button id="downloadApartmentStatementBtn" class="download-btn">Hesap Ekstresi İndir (PDF)</button>
+            <button id="deleteApartmentBtn" class="delete-btn">Sil</button>
         </div>
     </div>
 </div>
@@ -1075,7 +1076,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc as getDocFromFirestore, query, where, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc as getDocFromFirestore, query, where, writeBatch, deleteField, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     
     document.addEventListener('DOMContentLoaded', () => {
         const firebaseConfig = {
@@ -1825,32 +1826,45 @@
             pdfDoc.save(`Aylik_Rapor_${month}_${year}.pdf`);
             showMessage("adminTableMessage", "PDF indirildi.");
         }
-
-
-        async function downloadAccountStatementPdf() {
-            const selectedDaire = document.getElementById("flatSelect").value;
-            if (selectedDaire === 'all_apartments') {
-                return showMessage("adminTableMessage", "Lütfen belirli bir daire seçin.", true);
-            }
-
-            const year = currentAdminDate.getFullYear();
-            showMessage("adminTableMessage", `${selectedDaire} için ${year} yılı hesap ekstresi oluşturuluyor...`);
-
+        
+        async function downloadApartmentStatementPdf(daireId, timeRange = 'all') {
             const { jsPDF } = window.jspdf;
             const pdfDoc = new jsPDF();
+            
+            let title = "Hesap Ekstresi";
+            let filename = `Hesap_Ekstresi_${daireId}_Tüm_Zamanlar.pdf`;
+
+            if (timeRange === 'year') {
+                const year = currentAdminDate.getFullYear();
+                title = `Hesap Ekstresi - ${year}`;
+                filename = `Hesap_Ekstresi_${daireId}_${year}.pdf`;
+                 showMessage("adminTableMessage", `${daireId} için ${year} yılı hesap ekstresi oluşturuluyor...`);
+            } else {
+                 showMessage("adminTableMessage", `${daireId} için hesap ekstresi oluşturuluyor...`, false);
+            }
 
             const debtData = [];
             let totalBorc = 0;
             let totalOdenen = 0;
 
             try {
-                const debtsCollectionRef = collection(db, 'apartments', selectedDaire, 'debts');
+                const debtsCollectionRef = collection(db, 'apartments', daireId, 'debts');
                 const debtSnapshot = await getDocs(debtsCollectionRef);
 
                 debtSnapshot.forEach(d => {
                     const entry = d.data();
-                    const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
-                    if (parseInt(debtYearStr, 10) === year) {
+                    let include = false;
+                    if (timeRange === 'all') {
+                        include = true;
+                    } else if (timeRange === 'year') {
+                        const year = currentAdminDate.getFullYear();
+                        const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
+                        if (parseInt(debtYearStr, 10) === year) {
+                            include = true;
+                        }
+                    }
+
+                    if(include) {
                         debtData.push(entry);
                         totalBorc += Number(entry.tutar);
                         if(entry.odendi) {
@@ -1860,12 +1874,13 @@
                 });
 
                 if(debtData.length === 0) {
-                    return showMessage("adminTableMessage", `Seçilen daire için ${year} yılında kayıt bulunamadı.`, true);
+                    return showMessage("adminTableMessage", `Seçilen daire için belirtilen dönemde borç kaydı bulunamadı.`, true);
                 }
 
                 debtData.sort((a, b) => {
-                    const [ayA] = a.ay.split(' ');
-                    const [ayB] = b.ay.split(' ');
+                    const [ayA, yilA] = a.ay.split(' ');
+                    const [ayB, yilB] = b.ay.split(' ');
+                    if (yilA !== yilB) return Number(yilA) - Number(yilB);
                     return aylar.indexOf(ayA) - aylar.indexOf(ayB);
                 });
 
@@ -1878,23 +1893,43 @@
                     ];
                 });
 
-                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', selectedDaire));
+                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daireId));
                 const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
                 const malik = `${userData.adi || ''} ${userData.soyadi || ''}`.trim();
 
-                pdfDoc.setFont('helvetica');
+                pdfDoc.setFont('helvetica', 'normal');
 
                 pdfDoc.setFontSize(18);
-                pdfDoc.text(`Hesap Ekstresi - ${year}`, 105, 20, { align: "center" });
-                pdfDoc.setFontSize(12);
-                pdfDoc.text(`Daire: ${selectedDaire}${malik ? ` (${malik})` : ''}`, 14, 30);
-                pdfDoc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 196, 30, { align: 'right' });
+                pdfDoc.text(title, 105, 20, { align: "center" });
+                
+                const residentInfoBody = [
+                    ['Daire No', daireId],
+                    ['Tapu Sahibi', malik || 'N/A'],
+                    ['Telefon', userData.telefon || 'N/A'],
+                    ['E-posta', userData.mail || 'N/A']
+                ];
 
+                if (userData.userType === 'tenant' && userData.kiraciAdiSoyadi) {
+                    residentInfoBody.push(['Kiracı', userData.kiraciAdiSoyadi]);
+                }
 
                 pdfDoc.autoTable({
-                    head: [['Ay', 'Açıklama', 'Tutar', 'Durum']],
+                    body: residentInfoBody,
+                    startY: 30,
+                    theme: 'plain',
+                    styles: { fontSize: 10, font: 'helvetica' },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 40 },
+                        1: { cellWidth: 'auto' },
+                    }
+                });
+
+                let startY = pdfDoc.autoTable.previous.finalY + 10;
+
+                pdfDoc.autoTable({
+                    head: [['Dönem', 'Açıklama', 'Tutar', 'Durum']],
                     body: tableBody,
-                    startY: 40,
+                    startY: startY,
                     theme: 'grid',
                     styles: { font: 'helvetica', fontSize: 10 },
                     headStyles: { fillColor: [1, 79, 134] },
@@ -1912,14 +1947,12 @@
 
                 let finalY = pdfDoc.autoTable.previous.finalY;
                 pdfDoc.setFontSize(12);
-                pdfDoc.text(`Yıllık Toplam Borç: ${totalBorc.toFixed(2)} TL`, 14, finalY + 10);
-                pdfDoc.text(`Yıllık Toplam Ödenen: ${totalOdenen.toFixed(2)} TL`, 14, finalY + 17);
+                pdfDoc.text(`Genel Toplam Borç: ${totalBorc.toFixed(2)} TL`, 14, finalY + 10);
+                pdfDoc.text(`Genel Toplam Ödenen: ${totalOdenen.toFixed(2)} TL`, 14, finalY + 17);
                 pdfDoc.setFontSize(14);
                 pdfDoc.setFont(undefined, 'bold');
                 pdfDoc.text(`Kalan Bakiye: ${(totalBorc - totalOdenen).toFixed(2)} TL`, 14, finalY + 25);
 
-
-                const filename = `Hesap_Ekstresi_${selectedDaire}_${year}.pdf`;
                 pdfDoc.save(filename);
                 showMessage("adminTableMessage", "Hesap ekstresi PDF olarak indirildi.");
 
@@ -2426,7 +2459,27 @@
                 updateAdminDateDisplay();
             });
 
-            document.getElementById('downloadAccountStatementBtn').addEventListener('click', downloadAccountStatementPdf);
+            document.getElementById('downloadAccountStatementBtn').addEventListener('click', (e) => {
+                const daireId = document.getElementById('flatSelect').value;
+                if (daireId && daireId !== 'all_apartments') {
+                    downloadApartmentStatementPdf(daireId, 'year');
+                } else {
+                    showMessage("adminTableMessage", "Lütfen rapor oluşturmak için bir daire seçin.", true);
+                }
+            });
+            document.getElementById('downloadApartmentStatementBtn').addEventListener('click', async (e) => {
+                const daireId = e.target.dataset.daire;
+                if (daireId) {
+                    await downloadApartmentStatementPdf(daireId, 'all');
+                }
+            });
+            document.getElementById('deleteApartmentBtn').addEventListener('click', (e) => {
+                 const daireId = e.target.dataset.daire;
+                if (daireId) {
+                    deleteApartmentProfile(daireId);
+                }
+            });
+
             document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
             document.getElementById('uploadTemplateBtn').addEventListener('click', () => document.getElementById('profileTemplateInput').click());
@@ -2608,6 +2661,10 @@
                 content.innerHTML = `<p>Daire bilgileri bulunamadı.</p>`;
                 return;
             }
+            document.getElementById('editApartmentDetailBtn').dataset.daire = daireId;
+            document.getElementById('downloadApartmentStatementBtn').dataset.daire = daireId;
+            document.getElementById('deleteApartmentBtn').dataset.daire = daireId;
+
 
             const lastLogin = data.lastLogin ? new Date(data.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
             
@@ -2635,6 +2692,39 @@
             `;
             
             loadTenantDetails(daireId, data);
+        }
+
+        async function deleteApartmentProfile(daireId) {
+            if (confirm(`${daireId} daire profili ve ilgili tüm borçlar kalıcı olarak silinecektir! Bu işlem geri alınamaz. Emin misiniz?`)) {
+                try {
+                    const batch = writeBatch(db);
+                    
+                    const debtsSnapshot = await getDocs(collection(db, 'apartments', daireId, 'debts'));
+                    debtsSnapshot.forEach(d => batch.delete(d.ref));
+                    
+                    const flatDocRef = doc(db, 'apartments', daireId);
+                    batch.update(flatDocRef, {
+                        adi: deleteField(),
+                        soyadi: deleteField(),
+                        telefon: deleteField(),
+                        telefon2: deleteField(),
+                        mail: deleteField(),
+                        adres: deleteField(),
+                        userType: deleteField(),
+                        kiraciAdiSoyadi: deleteField(),
+                        profileCompleted: deleteField()
+                    });
+                    
+                    await batch.commit();
+                    
+                    showMessage("adminTableMessage", `${daireId} profili başarıyla silindi.`);
+                    document.getElementById('apartmentDetailModal').style.display = 'none';
+                    await loadApartmentsListPage(); 
+                } catch (e) {
+                    console.error("Profil silinirken hata:", e);
+                    showMessage("adminTableMessage", "Profil silinirken bir hata oluştu.", true);
+                }
+            }
         }
         
         async function loadTenantDetails(daireId, ownerData) {
@@ -2672,6 +2762,9 @@
 
         async function initialize() {
             try {
+                // Force enable network to avoid offline errors on initial load
+                await enableNetwork(db);
+
                 const adminDoc = await getDocFromFirestore(doc(db, 'admin', 'credentials'));
                 if (adminDoc.exists()) {
                     adminCredentials = adminDoc.data();
