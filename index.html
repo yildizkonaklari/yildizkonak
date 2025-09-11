@@ -735,6 +735,57 @@
         font-size: 0.9em;
     }
 
+    /* Admin Expense Card Styles */
+    .admin-expense-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 5px solid var(--info-color);
+    }
+    .admin-expense-card-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .admin-expense-card-info {
+        flex-grow: 1;
+    }
+    .admin-expense-card-info .description {
+        font-weight: bold;
+        font-size: 1.1em;
+        color: var(--text-color);
+    }
+    .admin-expense-card-info .date {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+    .admin-expense-card-details {
+        text-align: right;
+    }
+    .admin-expense-card-details .amount {
+        font-size: 1.4em;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    .admin-expense-card-actions {
+        display: flex;
+        justify-content: flex-end; /* Align button to the right */
+        gap: 8px;
+        margin-top: 15px;
+        width: 100%;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+    }
+    .admin-expense-card-actions button {
+        width: auto;
+        flex-grow: 0; /* Don't grow */
+        padding: 8px 20px;
+        font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -964,10 +1015,8 @@
             <button id="publishButton" class="publish-btn">Giderleri Yayınla</button>
         </div>
         <button id="downloadAllExpensesBtn" class="download-btn" style="margin-top: 10px;">Tüm Giderleri İndir (PDF)</button>
-        <div class="table-responsive">
-          <table id="adminExpenseTable">
-            <tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th><th>İşlem</th></tr>
-          </table>
+        <div id="adminExpenseListContainer" class="admin-debt-list-container">
+            <!-- Admin expense cards will be injected here -->
         </div>
         <div class="totals" id="adminExpenseTotals"></div>
       </div>
@@ -1015,7 +1064,7 @@
       <div class="terms-box" style="height: 40vh;">
         <p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, kişisel verileriniz; veri sorumlusu olarak Yıldız Konakları Site Yönetimi tarafından aşağıda açıklanan kapsamda işlenebilecektir.</p>
         <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
-        <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
+        <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrurultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
         <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
         <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
       </div>
@@ -1515,18 +1564,10 @@
             listContainer.innerHTML = '';
 
             try {
-                const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daire));
-                const userData = flatDocSnap.exists() ? flatDocSnap.data() : {};
-                const lastLogin = userData.lastLogin ? new Date(userData.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
+                const userData = allApartmentsData.find(d => d.id === daire) || {};
+                
                 userInfoDisplay.innerHTML = `<p><strong>Daire:</strong> ${daire}</p>
-                    <p><strong>Adı Soyadı:</strong> ${userData.adi || 'Bilgi Yok'} ${userData.soyadi || ''}</p>
-                    <p><strong>Telefon:</strong> ${userData.telefon || 'Bilgi Yok'}</p>
-                    <p><strong>E-posta:</strong> ${userData.mail || 'Bilgi Yok'}</p>
-                    <p><strong>Son Giriş:</strong> ${lastLogin}</p>
-                    <div class="user-profile-actions">
-                    <button class="edit-btn admin-action-btn" data-action="edit-profile" data-daire="${daire}">Düzenle</button>
-                    <button class="delete-btn admin-action-btn" data-action="delete-profile" data-daire="${daire}">Sil</button>
-                    </div>`;
+                    <p><strong>Adı Soyadı:</strong> ${userData.adi || 'Bilgi Yok'} ${userData.soyadi || ''}</p>`;
                 userInfoDisplay.classList.remove("hidden");
 
                 const debtsCollectionRef = collection(db, 'apartments', daire, 'debts');
@@ -1909,8 +1950,11 @@
                     ['E-posta', userData.mail || 'N/A']
                 ];
 
-                if (userData.userType === 'tenant' && userData.kiraciAdiSoyadi) {
-                    residentInfoBody.push(['Kiracı', userData.kiraciAdiSoyadi]);
+                if (userData.userType === 'tenant' && userData.kiraciBilgileri) {
+                    residentInfoBody.push(['---', '---']); // separator
+                    residentInfoBody.push(['Kiracı Adı Soyadı', userData.kiraciBilgileri.adSoyad || 'N/A']);
+                    residentInfoBody.push(['Kiracı Telefon', userData.kiraciBilgileri.telefon || 'N/A']);
+                    residentInfoBody.push(['Kiracı E-posta', userData.kiraciBilgileri.mail || 'N/A']);
                 }
 
                 pdfDoc.autoTable({
@@ -2090,9 +2134,9 @@
         }
 
         async function loadAdminExpensesTable(month, year) {
-            const table = document.getElementById("adminExpenseTable");
+            const listContainer = document.getElementById("adminExpenseListContainer");
             const publishButton = document.getElementById("publishButton");
-            table.innerHTML = '<tr><th>Tarih</th><th>Harcama Adı</th><th>Tutar</th><th>İşlem</th></tr>';
+            listContainer.innerHTML = '';
             let totalExpense = 0;
 
             const pubSnap = await getDocFromFirestore(doc(db, 'settings', 'publishedExpenses'));
@@ -2102,19 +2146,38 @@
 
             const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
             const expensesSnapshot = await getDocs(q);
+
             if (expensesSnapshot.empty) {
-                table.innerHTML += '<tr><td colspan="4">Gider kaydı yok.</td></tr>';
+                listContainer.innerHTML = '<p style="text-align:center; padding: 20px 0;">Bu dönem için gider kaydı yok.</p>';
             } else {
-                let rowsHtml = '';
-                expensesSnapshot.forEach(d => {
-                    const expense = d.data();
-                    rowsHtml += `<tr><td>${expense.tarih}</td><td>${expense.harcamaAdi}</td><td>${expense.tutar} TL</td>
-                                 <td><button class="delete-btn admin-action-btn" data-action="delete-expense" data-id="${d.id}">Sil</button></td></tr>`;
+                let cardsHtml = '';
+                const expenses = [];
+                expensesSnapshot.forEach(d => expenses.push({id: d.id, ...d.data()}));
+                
+                // Sort by date, most recent first
+                expenses.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+
+                expenses.forEach(expense => {
+                    cardsHtml += `
+                    <div class="admin-expense-card">
+                        <div class="admin-expense-card-main">
+                            <div class="admin-expense-card-info">
+                                <span class="description">${expense.harcamaAdi}</span>
+                                <span class="date">${new Date(expense.tarih).toLocaleDateString('tr-TR')}</span>
+                            </div>
+                            <div class="admin-expense-card-details">
+                                <span class="amount">₺${expense.tutar}</span>
+                            </div>
+                        </div>
+                        <div class="admin-expense-card-actions">
+                             <button class="delete-btn admin-action-btn" data-action="delete-expense" data-id="${expense.id}">Sil</button>
+                        </div>
+                    </div>`;
                     totalExpense += Number(expense.tutar);
                 });
-                table.innerHTML += rowsHtml;
+                listContainer.innerHTML = cardsHtml;
             }
-            document.getElementById("adminExpenseTotals").textContent = `Toplam Gider: ${totalExpense} TL`;
+            document.getElementById("adminExpenseTotals").textContent = `Toplam Gider: ${totalExpense.toFixed(2)} TL`;
         }
         
         async function deleteExpense(expenseId) {
@@ -2479,6 +2542,12 @@
                     deleteApartmentProfile(daireId);
                 }
             });
+            document.getElementById('editApartmentDetailBtn').addEventListener('click', (e) => {
+                const daireId = e.target.dataset.daire;
+                if(daireId) {
+                    editApartmentDetails(daireId);
+                }
+            });
 
             document.getElementById('downloadMonthlyReportBtn').addEventListener('click', downloadMonthlyReportPdf);
             document.getElementById('downloadTemplateBtn').addEventListener('click', downloadProfileTemplate);
@@ -2656,15 +2725,41 @@
             content.innerHTML = `<p>Yükleniyor...</p>`;
             modal.style.display = 'block';
 
-            const data = allApartmentsData.find(d => d.id === daireId);
-            if (!data) {
-                content.innerHTML = `<p>Daire bilgileri bulunamadı.</p>`;
-                return;
+            // Fetch fresh data every time modal opens to ensure it's up to date
+            const flatDocSnap = await getDocFromFirestore(doc(db, 'apartments', daireId));
+            const data = flatDocSnap.exists() ? flatDocSnap.data() : {};
+            data.id = daireId; 
+
+            // Calculate unpaid balance for this specific apartment
+            let unpaidBalance = 0;
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonthIndex = today.getMonth();
+            const debtsSnapshot = await getDocs(query(collection(db, 'apartments', daireId, 'debts'), where('odendi', '==', false)));
+            debtsSnapshot.forEach(debtDoc => {
+                const entry = debtDoc.data();
+                const [debtMonthStr, debtYearStr] = entry.ay.split(' ');
+                if (!debtMonthStr || !debtYearStr) return; 
+                const debtYear = parseInt(debtYearStr, 10);
+                const debtMonthIndex = aylar.indexOf(debtMonthStr);
+                const isDue = debtYear < currentYear || (debtYear === currentYear && debtMonthIndex <= currentMonthIndex);
+                if (isDue) {
+                    unpaidBalance += Number(entry.tutar);
+                }
+            });
+            data.unpaidBalance = unpaidBalance;
+
+            // Update the global data array as well
+            const dataIndex = allApartmentsData.findIndex(d => d.id === daireId);
+            if (dataIndex !== -1) {
+                allApartmentsData[dataIndex] = data;
+            } else {
+                allApartmentsData.push(data);
             }
+
             document.getElementById('editApartmentDetailBtn').dataset.daire = daireId;
             document.getElementById('downloadApartmentStatementBtn').dataset.daire = daireId;
             document.getElementById('deleteApartmentBtn').dataset.daire = daireId;
-
 
             const lastLogin = data.lastLogin ? new Date(data.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
             
@@ -2712,6 +2807,7 @@
                         adres: deleteField(),
                         userType: deleteField(),
                         kiraciAdiSoyadi: deleteField(),
+                        kiraciBilgileri: deleteField(),
                         profileCompleted: deleteField()
                     });
                     
@@ -2729,10 +2825,11 @@
         
         async function loadTenantDetails(daireId, ownerData) {
             const tenantSection = document.getElementById('tenantDetailSection');
-            if (ownerData.userType === 'tenant') {
+            if (ownerData.userType === 'tenant' && ownerData.kiraciBilgileri) {
                  tenantSection.innerHTML = `
-                    <div class="detail-item"><strong>Adı Soyadı:</strong> <span>${ownerData.kiraciAdiSoyadi || 'N/A'}</span></div>
-                    <p style="font-size: 0.9em; text-align: center; margin-top: 10px;">Bu dairede tapu sahibi yerine kiracı ikamet etmektedir.</p>
+                    <div class="detail-item"><strong>Adı Soyadı:</strong> <span>${ownerData.kiraciBilgileri.adSoyad || 'N/A'}</span></div>
+                    <div class="detail-item"><strong>Telefon:</strong> <span>${ownerData.kiraciBilgileri.telefon || 'N/A'}</span></div>
+                    <div class="detail-item"><strong>E-posta:</strong> <span>${ownerData.kiraciBilgileri.mail || 'N/A'}</span></div>
                  `;
             } else {
                  tenantSection.innerHTML = `
@@ -2744,19 +2841,86 @@
         }
         
         async function addTenant(daireId) {
-            const kiraciAdi = prompt("Kiracının Adı Soyadı:");
-            if (!kiraciAdi) return;
-            // Diğer bilgileri de alabilirsiniz. Şimdilik sadece ad soyad ekliyoruz.
-             try {
+            const kiraciAdiSoyadi = prompt("Kiracının Adı Soyadı:");
+            if (!kiraciAdiSoyadi) return;
+            const kiraciTelefon = prompt("Kiracının Telefon Numarası:");
+            if (kiraciTelefon === null) return;
+            const kiraciMail = prompt("Kiracının E-posta Adresi:");
+            if (kiraciMail === null) return;
+            
+            try {
                 await updateDoc(doc(db, 'apartments', daireId), {
                     userType: 'tenant',
-                    kiraciAdiSoyadi: kiraciAdi
+                    kiraciBilgileri: {
+                        adSoyad: kiraciAdiSoyadi,
+                        telefon: kiraciTelefon,
+                        mail: kiraciMail
+                    }
                 });
                 alert("Kiracı başarıyla eklendi.");
-                openApartmentDetailModal(daireId); // Refresh modal
-                loadApartmentsListPage(); // Refresh main list
+                await loadApartmentsListPage(); // Refresh all data
+                openApartmentDetailModal(daireId); // Re-open modal with fresh data
             } catch(e) {
+                console.error("Kiracı eklenirken hata:", e);
                 alert("Kiracı eklenirken bir hata oluştu.");
+            }
+        }
+
+        async function editApartmentDetails(daireId) {
+            const flatDocRef = doc(db, 'apartments', daireId);
+            const flatDocSnap = await getDocFromFirestore(flatDocRef);
+            if (!flatDocSnap.exists()) {
+                return alert("Daire bilgileri bulunamadı.");
+            }
+            const userData = flatDocSnap.data();
+
+            // Owner info
+            const newAdi = prompt(`Tapu Sahibi Adı:`, userData.adi || '');
+            if (newAdi === null) return;
+            const newSoyadi = prompt(`Tapu Sahibi Soyadı:`, userData.soyadi || '');
+            if (newSoyadi === null) return;
+            const newTelefon = prompt(`Telefon:`, userData.telefon || '');
+            if (newTelefon === null) return;
+            const newTelefon2 = prompt(`Telefon 2:`, userData.telefon2 || '');
+            if (newTelefon2 === null) return;
+            const newMail = prompt(`E-posta:`, userData.mail || '');
+            if (newMail === null) return;
+            const newAdres = prompt(`Adres:`, userData.adres || '');
+            if (newAdres === null) return;
+
+            const updateData = {
+                adi: newAdi,
+                soyadi: newSoyadi,
+                telefon: newTelefon,
+                telefon2: newTelefon2,
+                mail: newMail,
+                adres: newAdres
+            };
+
+            // Tenant info if exists
+            if (userData.userType === 'tenant') {
+                const kiraciAdiSoyadi = prompt(`Kiracı Adı Soyadı:`, userData.kiraciBilgileri?.adSoyad || '');
+                if (kiraciAdiSoyadi === null) return;
+                const kiraciTelefon = prompt(`Kiracı Telefonu:`, userData.kiraciBilgileri?.telefon || '');
+                if (kiraciTelefon === null) return;
+                const kiraciMail = prompt(`Kiracı E-postası:`, userData.kiraciBilgileri?.mail || '');
+                if (kiraciMail === null) return;
+                
+                updateData.kiraciBilgileri = {
+                    adSoyad: kiraciAdiSoyadi,
+                    telefon: kiraciTelefon,
+                    mail: kiraciMail
+                };
+            }
+
+            try {
+                await updateDoc(flatDocRef, updateData);
+                alert("Profil bilgileri güncellendi.");
+                await loadApartmentsListPage(); // Refresh all data
+                openApartmentDetailModal(daireId); // Re-open modal with fresh data
+            } catch (e) {
+                console.error("Profil güncellenirken hata:", e);
+                alert("Profil güncellenirken bir hata oluştu.");
             }
         }
 
