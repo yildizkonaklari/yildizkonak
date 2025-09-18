@@ -84,25 +84,6 @@
       cursor: not-allowed;
     }
     .hidden { display: none !important; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid var(--border-color);
-      padding: 12px;
-      text-align: center;
-      word-break: break-word;
-    }
-    th {
-      background-color: #dbe9f4;
-      font-weight: bold;
-    }
-    td:first-child {
-        text-align: left;
-        padding-left: 10px;
-    }
     .totals {
       margin-top: 20px;
       font-weight: bold;
@@ -123,7 +104,6 @@
     .error-message { text-align: center; color: var(--danger-color); margin-top: 10px; font-weight: bold; }
     .bank-info { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px dashed var(--border-color); font-size: 0.9em; color: #555; }
     .section-divider { margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--border-color); }
-    .unpaid-debt { color: var(--danger-color); font-weight: bold; }
     .collapsible-header {
       background-color: #dbe9f4;
       color: var(--primary-color);
@@ -151,7 +131,7 @@
       border-radius: 6px;
     }
     .collapsible-content.active {
-      max-height: 1200px; 
+      max-height: 1500px; 
       padding: 18px;
     }
     .collapsible-header:after {
@@ -173,16 +153,7 @@
     .user-profile-display p {
       margin: 5px 0;
     }
-    .user-profile-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 10px;
-    }
-    .table-responsive {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
+    
     .publish-btn {
       background-color: var(--publish-bg);
       color: white;
@@ -236,13 +207,6 @@
         max-height: 1500px;
         padding: 15px;
         border: 1px solid #eee;
-    }
-    .admin-table-container {
-      max-height: 400px;
-      overflow-y: auto;
-      margin-top: 15px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
     }
     .profile-info-text {
         background-color: #e9ecef;
@@ -1260,21 +1224,29 @@
         async function checkProfileAndToggleExpensesButton() {
             try {
                 const userDocSnap = await getDocFromFirestore(doc(db, 'apartments', loggedInUsername));
-                if (userDocSnap.exists()) {
-                    const { telefon, mail } = userDocSnap.data();
-                    const expensesBtn = document.getElementById('showExpensesBtn');
-                    const debtBtn = document.getElementById('showDebtBtn');
-                    const warningMsg = document.getElementById('profileIncompleteMessage');
-                    if (telefon && mail) {
+                const publishedExpensesSnap = await getDocFromFirestore(doc(db, 'settings', 'publishedExpenses'));
+
+                const expensesBtn = document.getElementById('showExpensesBtn');
+                const debtBtn = document.getElementById('showDebtBtn');
+                const warningMsg = document.getElementById('profileIncompleteMessage');
+                
+                const userData = userDocSnap.exists() ? userDocSnap.data() : {};
+                const pubData = publishedExpensesSnap.exists() ? publishedExpensesSnap.data() : { published: false };
+
+                if (userData.profileCompleted) {
+                    debtBtn.disabled = false;
+                    warningMsg.classList.add('hidden');
+                    
+                    if (pubData.published) {
                         expensesBtn.classList.remove('hidden');
-                        debtBtn.disabled = false;
-                        warningMsg.classList.add('hidden');
                     } else {
                         expensesBtn.classList.add('hidden');
-                        debtBtn.disabled = true;
-                        warningMsg.textContent = "Bakiye ve Giderleri görebilmek için lütfen site kaydınızı tamamlayın.";
-                        warningMsg.classList.remove('hidden');
                     }
+                } else {
+                    expensesBtn.classList.add('hidden');
+                    debtBtn.disabled = true;
+                    warningMsg.textContent = "Bakiye ve Giderleri görebilmek için lütfen site kaydınızı tamamlayın.";
+                    warningMsg.classList.remove('hidden');
                 }
             } catch (error) {
                  console.error("Giderler butonu kontrol edilirken hata:", error);
@@ -1318,7 +1290,8 @@
                 telefon2,
                 mail,
                 adres,
-                profileCompleted: true
+                profileCompleted: true,
+                userType: 'owner' // Simplified logic
             };
             
             try {
@@ -2372,62 +2345,6 @@
             }
         }
         
-        async function downloadMonthlyExpensesPdf() {
-            const month = aylar[currentExpenseDate.getMonth()];
-            const year = currentExpenseDate.getFullYear();
-            showMessage("expenseMessage", `${month} ${year} için gider raporu oluşturuluyor...`, false);
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            const expenseData = [];
-            let totalExpense = 0;
-            try {
-                const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
-                const expensesSnapshot = await getDocs(q);
-
-                if (expensesSnapshot.empty) {
-                   return showMessage("expenseMessage", "Seçili ay için gider kaydı bulunamadı.", true);
-                }
-
-                expensesSnapshot.forEach(docSnap => {
-                    const expense = docSnap.data();
-                    expenseData.push([
-                        new Date(expense.tarih).toLocaleDateString('tr-TR'),
-                        expense.harcamaAdi,
-                        `${Number(expense.tutar).toFixed(2)} TL`
-                    ]);
-                    totalExpense += Number(expense.tutar);
-                });
-
-                expenseData.sort((a, b) => new Date(b[0].split('.').reverse().join('-')) - new Date(a[0].split('.').reverse().join('-')));
-
-                doc.autoTable({
-                    head: [['Tarih', 'Harcama Adı', 'Tutar']],
-                    body: expenseData,
-                    didDrawPage: function (data) {
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(18);
-                        doc.text(`Aylık Gider Raporu - ${month} ${year}`, 105, 20, { align: "center" });
-                        doc.setFontSize(12);
-                        doc.text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
-                    },
-                    startY: 35,
-                    theme: 'grid',
-                    styles: { font: 'helvetica' },
-                    foot: [['', 'Aylık Toplam Gider', `${totalExpense.toFixed(2)} TL`]],
-                    footStyles: { fontStyle: 'bold', fillColor: [219, 233, 244] }
-                });
-                
-                const filename = `Aylik_Gider_Raporu_${month}_${year}.pdf`;
-                doc.save(filename);
-                showMessage("expenseMessage", "Aylık gider raporu başarıyla indirildi.");
-
-            } catch (error) {
-                console.error("Aylık gider PDF'i oluşturulurken hata:", error);
-                showMessage("expenseMessage", "PDF oluşturulurken bir hata oluştu.", true);
-            }
-        }
-        
         function addEventListeners() {
             document.getElementById('loginButton').addEventListener('click', login);
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
@@ -2799,6 +2716,62 @@
             } catch (e) {
                 console.error("Profil güncellenirken hata:", e);
                 alert("Profil güncellenirken bir hata oluştu.");
+            }
+        }
+        
+        async function downloadMonthlyExpensesPdf() {
+            const month = aylar[currentExpenseDate.getMonth()];
+            const year = currentExpenseDate.getFullYear();
+            showMessage("expenseMessage", `${month} ${year} için gider raporu oluşturuluyor...`, false);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const expenseData = [];
+            let totalExpense = 0;
+            try {
+                const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
+                const expensesSnapshot = await getDocs(q);
+
+                if (expensesSnapshot.empty) {
+                   return showMessage("expenseMessage", "Seçili ay için gider kaydı bulunamadı.", true);
+                }
+
+                expensesSnapshot.forEach(docSnap => {
+                    const expense = docSnap.data();
+                    expenseData.push([
+                        new Date(expense.tarih).toLocaleDateString('tr-TR'),
+                        expense.harcamaAdi,
+                        `${Number(expense.tutar).toFixed(2)} TL`
+                    ]);
+                    totalExpense += Number(expense.tutar);
+                });
+
+                expenseData.sort((a, b) => new Date(b[0].split('.').reverse().join('-')) - new Date(a[0].split('.').reverse().join('-')));
+
+                doc.autoTable({
+                    head: [['Tarih', 'Harcama Adı', 'Tutar']],
+                    body: expenseData,
+                    didDrawPage: function (data) {
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(18);
+                        doc.text(`Aylık Gider Raporu - ${month} ${year}`, 105, 20, { align: "center" });
+                        doc.setFontSize(12);
+                        doc.text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 105, 28, { align: "center" });
+                    },
+                    startY: 35,
+                    theme: 'grid',
+                    styles: { font: 'helvetica' },
+                    foot: [['', 'Aylık Toplam Gider', `${totalExpense.toFixed(2)} TL`]],
+                    footStyles: { fontStyle: 'bold', fillColor: [219, 233, 244] }
+                });
+                
+                const filename = `Aylik_Gider_Raporu_${month}_${year}.pdf`;
+                doc.save(filename);
+                showMessage("expenseMessage", "Aylık gider raporu başarıyla indirildi.");
+
+            } catch (error) {
+                console.error("Aylık gider PDF'i oluşturulurken hata:", error);
+                showMessage("expenseMessage", "PDF oluşturulurken bir hata oluştu.", true);
             }
         }
 
