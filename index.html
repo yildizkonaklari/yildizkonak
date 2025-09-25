@@ -1023,6 +1023,9 @@
         <h5 style="margin-top: 20px;">Yönetici Şifresi Ayarla</h5>
         <input type="password" id="adminYeniSifre" placeholder="Yeni Yönetici Şifresi">
         <button id="saveAdminPasswordBtn">Yönetici Şifresini Kaydet</button>
+         <h5 style="margin-top: 20px;">Yönetim (Görüntüleme) Şifresi Ayarla</h5>
+        <input type="password" id="viewerAdminYeniSifre" placeholder="Yeni Yönetim Şifresi">
+        <button id="saveViewerAdminPasswordBtn">Yönetim Şifresini Kaydet</button>
         <div id="passwordMessage" class="message hidden"></div>
       </div>
 
@@ -1106,8 +1109,8 @@
         const db = getFirestore(app);
         
         let loggedInUsername = null;
-        let adminCredentials = { username: "admin", password: "admin123" };
-        let viewerAdminCredentials = { username: "YONETIM", password: "yon2599" };
+        let adminCredentials = {};
+        let viewerAdminCredentials = {};
         let currentAdminRole = null;
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         let currentAdminDate = new Date();
@@ -1187,14 +1190,14 @@
                 return showMessage('loginMessage', 'Lütfen kullanıcı sözleşmesini onaylayın.', true);
             }
 
-            if (username === adminCredentials.username.toUpperCase() && password === adminCredentials.password) {
+            if (username === adminCredentials.username?.toUpperCase() && password === adminCredentials.password) {
                 currentAdminRole = 'full';
                 await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
                 setupAdminPanel(currentAdminRole);
                 return;
             }
             
-            if (username === viewerAdminCredentials.username.toUpperCase() && password === viewerAdminCredentials.password) {
+            if (username === viewerAdminCredentials.username?.toUpperCase() && password === viewerAdminCredentials.password) {
                 currentAdminRole = 'viewer';
                 setupAdminPanel(currentAdminRole);
                 return;
@@ -2430,6 +2433,7 @@
             document.getElementById('deleteAllDebtsBtn').addEventListener('click', deleteAllDebts);
             document.getElementById('savePasswordBtn').addEventListener('click', sifreAyarla);
             document.getElementById('saveAdminPasswordBtn').addEventListener('click', setAdminPassword);
+            document.getElementById('saveViewerAdminPasswordBtn').addEventListener('click', setViewerAdminPassword);
             
              document.getElementById('loginTerms').addEventListener('change', function() {
                 document.getElementById('loginButton').disabled = !this.checked;
@@ -2514,6 +2518,18 @@
                 await setDoc(doc(db, 'admin', 'credentials'), { password: newPass }, { merge: true });
                 adminCredentials.password = newPass;
                 showMessage("passwordMessage", "Yönetici şifresi güncellendi.");
+            } catch (e) {
+                showMessage("passwordMessage", "Şifre güncellenemedi.", true);
+            }
+        }
+        
+        async function setViewerAdminPassword() {
+            const newPass = document.getElementById("viewerAdminYeniSifre").value;
+            if (newPass.length < 5) return showMessage("passwordMessage", "Şifre en az 5 karakter olmalı.", true);
+            try {
+                await setDoc(doc(db, 'admin', 'viewerCredentials'), { password: newPass }, { merge: true });
+                viewerAdminCredentials.password = newPass;
+                showMessage("passwordMessage", "Yönetim (Görüntüleme) şifresi güncellendi.");
             } catch (e) {
                 showMessage("passwordMessage", "Şifre güncellenemedi.", true);
             }
@@ -2726,7 +2742,7 @@
                 alert("Profil güncellenirken bir hata oluştu.");
             }
         }
-
+        
         async function downloadMonthlyExpensesPdf() {
             const month = aylar[currentExpenseDate.getMonth()];
             const year = currentExpenseDate.getFullYear();
@@ -2782,7 +2798,7 @@
                 showMessage("expenseMessage", "PDF oluşturulurken bir hata oluştu.", true);
             }
         }
-        
+
         async function initialize() {
             try {
                 // Force enable network to avoid offline errors on initial load
@@ -2792,8 +2808,18 @@
                 if (adminDoc.exists()) {
                     adminCredentials = adminDoc.data();
                 } else {
-                    await setDoc(doc(db, 'admin', 'credentials'), adminCredentials);
+                    await setDoc(doc(db, 'admin', 'credentials'), { username: "admin", password: "admin123" });
+                    adminCredentials = { username: "admin", password: "admin123" };
                 }
+                
+                const viewerAdminDoc = await getDocFromFirestore(doc(db, 'admin', 'viewerCredentials'));
+                if (viewerAdminDoc.exists()) {
+                    viewerAdminCredentials = viewerAdminDoc.data();
+                } else {
+                    await setDoc(doc(db, 'admin', 'viewerCredentials'), { username: "YONETIM", password: "yon2599" });
+                    viewerAdminCredentials = { username: "YONETIM", password: "yon2599" };
+                }
+
 
                 const batch = writeBatch(db);
                 let passwordSetCount = 0;
