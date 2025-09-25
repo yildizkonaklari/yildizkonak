@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Ayvalık Yıldız Konakları - Site Yönetimi</title>
+  <title>Ayvalık Yıldız Konakları - Aidat Takip</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -541,20 +541,6 @@
     .form-group {
         margin-bottom: 15px;
     }
-    .radio-group {
-        display: flex;
-        gap: 20px;
-        margin: 10px 0;
-    }
-    .radio-group label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    .radio-group input[type="radio"] {
-      width: auto;
-      margin: 0;
-    }
     .profile-display-view {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -778,7 +764,7 @@
 <body>
   <div class="container">
     <h1>Ayvalık Yıldız Konakları</h1>
-    <h2>Site Yönetimi</h2>
+    <h2>Aidat Takip Sistemi</h2>
 
     <div id="login">
       <h3>Giriş Yap</h3>
@@ -881,10 +867,10 @@
       </div>
       
       <div class="section-divider"></div>
-      <button class="collapsible-header">
+      <button class="collapsible-header admin-only">
         Aidat-Avans Ekle
       </button>
-      <div id="newDebtSection" class="collapsible-content">
+      <div id="newDebtSection" class="collapsible-content admin-only">
         <select id="borcTipi">
           <option value="aidat">Aidat</option>
           <option value="avans">Avans</option>
@@ -925,10 +911,10 @@
         </div>
 
       <div class="section-divider"></div>
-      <button class="collapsible-header">
+      <button class="collapsible-header admin-only">
         Tahsilat Ekle
       </button>
-      <div id="debtListSection" class="collapsible-content">
+      <div id="debtListSection" class="collapsible-content admin-only">
         <select id="flatSelect"></select>
          <div class="month-selector">
             <button id="prevMonthBtn">&lt;</button>
@@ -986,12 +972,14 @@
         Giderler
       </button>
       <div id="expenseSection" class="collapsible-content">
-        <h4>Yeni Gider Ekle</h4>
-        <input type="date" id="expenseDateInput">
-        <input type="text" id="expenseNameInput" placeholder="Harcama Adı">
-        <input type="number" id="expenseAmountInput" placeholder="Tutar (₺)">
-        <button id="saveExpenseBtn">Kaydet</button>
-        <div id="expenseMessage" class="message hidden"></div>
+        <div class="admin-only">
+            <h4>Yeni Gider Ekle</h4>
+            <input type="date" id="expenseDateInput">
+            <input type="text" id="expenseNameInput" placeholder="Harcama Adı">
+            <input type="number" id="expenseAmountInput" placeholder="Tutar (₺)">
+            <button id="saveExpenseBtn">Kaydet</button>
+            <div id="expenseMessage" class="message hidden"></div>
+        </div>
         <h4>Gider Listesi</h4>
         <div class="month-selector">
             <button id="expensePrevMonthBtn">&lt;</button>
@@ -999,7 +987,7 @@
             <button id="expenseNextMonthBtn">&gt;</button>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button id="publishButton" class="publish-btn">Giderleri Yayınla</button>
+            <button id="publishButton" class="publish-btn admin-only">Giderleri Yayınla</button>
             <button id="downloadMonthlyExpensesBtn" class="download-btn">Aylık Gider İndir (PDF)</button>
         </div>
         <div id="adminExpenseListContainer" class="admin-debt-list-container">
@@ -1009,11 +997,11 @@
       </div>
 
       <div class="section-divider"></div>
-      <button id="balanceSectionHeader" class="collapsible-header">
+      <button id="balanceSectionHeader" class="collapsible-header admin-only">
         <span>Bakiye Durumu</span>
         <span id="refreshBalanceBtn" class="refresh-icon" title="Bakiyeyi Yenile">↻</span>
       </button>
-      <div id="balanceSection" class="collapsible-content">
+      <div id="balanceSection" class="collapsible-content admin-only">
         <h4>Genel Bakiye Durumu</h4>
         <div id="balanceDetails" style="text-align: center; font-size: 1.2em; padding: 20px;">
             <p><strong>Toplam Gelir (Ödenen Aidatlar/Avanslar):</strong> <span id="totalIncome">Hesaplanıyor...</span></p>
@@ -1025,10 +1013,10 @@
       </div>
       
       <div class="section-divider"></div>
-      <button class="collapsible-header">
+      <button class="collapsible-header admin-only">
         Daire Şifresi Ayarla
       </button>
-      <div id="passwordSection" class="collapsible-content">
+      <div id="passwordSection" class="collapsible-content admin-only">
         <select id="sifreDaire"></select>
         <input type="password" id="yeniSifre" placeholder="Yeni Daire Şifresi">
         <button id="savePasswordBtn">Daire Şifresini Kaydet</button>
@@ -1039,7 +1027,7 @@
       </div>
 
       <div class="section-divider"></div>
-      <button id="deleteAllDebtsBtn" class="delete-btn">Tüm Dairelerin Tüm Borçlarını Sil</button>
+      <button id="deleteAllDebtsBtn" class="delete-btn admin-only">Tüm Dairelerin Tüm Borçlarını Sil</button>
       <button id="logoutBtnAdmin">Çıkış Yap</button>
     </div>
   </div>
@@ -1053,7 +1041,7 @@
         <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
         <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrurultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
         <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
-        <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta, Adres) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
+        <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
       </div>
     </div>
   </div>
@@ -1061,7 +1049,7 @@
   <div id="registrationModal" class="modal">
     <div class="modal-content">
         <h4>Site Kaydı Oluştur</h4>
-        <p>Değerli Site Sakinimiz <strong id="welcomeUserName"></strong>, Ayvalık Konakları Site Yönetimi Sistemine hoş geldiniz. Site kaydınızı oluşturmak için lütfen aşağıdaki formu doldurunuz.</p>
+        <p>Değerli Site Sakinimiz <strong id="welcomeUserName"></strong>, Ayvalık Konakları Aidat Takip Sistemine hoş geldiniz. Site kaydınızı oluşturmak için lütfen aşağıdaki formu doldurunuz.</p>
         
         <div class="form-group">
             <input type="tel" id="regTelefon" placeholder="Telefon (5xx xxx xx xx)">
@@ -1119,6 +1107,8 @@
         
         let loggedInUsername = null;
         let adminCredentials = { username: "admin", password: "admin123" };
+        let viewerAdminCredentials = { username: "YONETIM", password: "yon2599" };
+        let currentAdminRole = null;
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         let currentAdminDate = new Date();
         let currentExpenseDate = new Date();
@@ -1198,8 +1188,15 @@
             }
 
             if (username === adminCredentials.username.toUpperCase() && password === adminCredentials.password) {
+                currentAdminRole = 'full';
                 await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
-                setupAdminPanel();
+                setupAdminPanel(currentAdminRole);
+                return;
+            }
+            
+            if (username === viewerAdminCredentials.username.toUpperCase() && password === viewerAdminCredentials.password) {
+                currentAdminRole = 'viewer';
+                setupAdminPanel(currentAdminRole);
                 return;
             }
             
@@ -1290,8 +1287,7 @@
                 telefon2,
                 mail,
                 adres,
-                profileCompleted: true,
-                userType: 'owner' // Simplified logic
+                profileCompleted: true
             };
             
             try {
@@ -2067,6 +2063,11 @@
                 expenses.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
 
                 expenses.forEach(expense => {
+                    const actionsHtml = currentAdminRole === 'full' ? `
+                    <div class="admin-expense-card-actions">
+                         <button class="delete-btn admin-action-btn" data-action="delete-expense" data-id="${expense.id}">Sil</button>
+                    </div>` : '';
+                    
                     cardsHtml += `
                     <div class="admin-expense-card">
                         <div class="admin-expense-card-main">
@@ -2078,9 +2079,7 @@
                                 <span class="amount">₺${expense.tutar}</span>
                             </div>
                         </div>
-                        <div class="admin-expense-card-actions">
-                             <button class="delete-btn admin-action-btn" data-action="delete-expense" data-id="${expense.id}">Sil</button>
-                        </div>
+                        ${actionsHtml}
                     </div>`;
                     totalExpense += Number(expense.tutar);
                 });
@@ -2325,11 +2324,17 @@
             }
         }
 
-        async function setupAdminPanel() {
+        async function setupAdminPanel(role) {
             try {
                 document.getElementById("login").classList.add("hidden");
                 document.getElementById("userPanel").classList.add("hidden");
                 document.getElementById("adminPanel").classList.remove("hidden");
+
+                if(role === 'viewer') {
+                    document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+                    document.querySelectorAll('.modal-actions .edit-btn, .modal-actions .delete-btn').forEach(el => el.classList.add('hidden'));
+                }
+
                 fillFlatSelects();
                 fillBorcEkleDateFilters();
                 updateAdminDateDisplay();
@@ -2452,9 +2457,7 @@
                 const action = target.dataset.action;
                 const daire = target.dataset.daire;
                 const id = target.dataset.id;
-                if (action === 'edit-profile') editUserProfileAsAdmin(daire);
-                else if (action === 'delete-profile') deleteUserProfileAsAdmin(daire);
-                else if (action === 'mark-paid') markPaid(daire, id);
+                if (action === 'mark-paid') markPaid(daire, id);
                 else if (action === 'edit-debt') editDebt(daire, id);
                 else if (action === 'delete-debt') silBorc(daire, id);
                 else if (action === 'delete-expense') deleteExpense(id);
@@ -2625,6 +2628,11 @@
             document.getElementById('downloadApartmentStatementBtn').dataset.daire = daireId;
             document.getElementById('deleteApartmentBtn').dataset.daire = daireId;
 
+            if(currentAdminRole === 'viewer'){
+                document.getElementById('editApartmentDetailBtn').classList.add('hidden');
+                document.getElementById('deleteApartmentBtn').classList.add('hidden');
+            }
+
             const lastLogin = data.lastLogin ? new Date(data.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
             
             content.innerHTML = `
@@ -2718,7 +2726,7 @@
                 alert("Profil güncellenirken bir hata oluştu.");
             }
         }
-        
+
         async function downloadMonthlyExpensesPdf() {
             const month = aylar[currentExpenseDate.getMonth()];
             const year = currentExpenseDate.getFullYear();
@@ -2774,7 +2782,7 @@
                 showMessage("expenseMessage", "PDF oluşturulurken bir hata oluştu.", true);
             }
         }
-
+        
         async function initialize() {
             try {
                 // Force enable network to avoid offline errors on initial load
