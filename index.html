@@ -2201,7 +2201,7 @@
             try {
                 for (const daire of daireler) {
                     const debtsRef = collection(db, 'apartments', daire, 'debts');
-                    const q = query(debtsRef, where("odendi", "==", false));
+                    const q = query(debtsRef, where("odendi", "==", false), where("tip", "!=", "gecikme-tazminati"));
                     const unpaidDebtsSnap = await getDocs(q);
 
                     unpaidDebtsSnap.forEach(debtDoc => {
@@ -2848,4 +2848,3 @@
   </script>
 </body>
 </html>
-
