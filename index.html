@@ -626,7 +626,7 @@
                             <button class="delete-student-btn text-red-500 hover:text-red-700 mr-2" data-id="${student.id}" title="Sil"><i class="fas fa-trash"></i></button>
                             <button class="send-student-info-btn text-green-500 hover:text-green-700 mr-2" data-id="${student.id}" title="Gönder"><i class="fas fa-paper-plane"></i></button>
                             <button class="print-student-btn text-gray-500 hover:text-gray-700 mr-2" data-id="${student.id}" title="Yazdır"><i class="fas fa-print"></i></button>
-                            <a href="#" class="add-to-calendar-btn text-blue-500 hover:text-blue-700" data-id="${student.id}" title="Google Takvim'e Ekle"><i class="fab fa-google"></i></a>
+                            <a href="#" class="add-to-calendar-btn text-blue-500 hover:text-blue-700" data-id="${student.id}" title="Google Takvim'e Ekle"><i class="fas fa-calendar-plus"></i></a>
                         </td>
                     </tr>
                 `;
@@ -1565,23 +1565,12 @@
         document.getElementById('calendar-course-filter').addEventListener('change', renderCalendar);
 
         modal.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-backdrop')) {
+            if (e.target.classList.contains('modal-backdrop') || e.target.id === 'modal') {
                 hideModal();
             }
         });
         
         document.body.addEventListener('click', e => {
-            const calendarEvent = e.target.closest('.calendar-event');
-             if (calendarEvent) {
-                e.preventDefault();
-                const studentId = calendarEvent.dataset.studentId;
-                const student = state.students.find(s => s.id == studentId);
-                if (student) {
-                    showModal(getStudentStatusModalHTML(student));
-                }
-                return;
-            }
-
             if (!modal.classList.contains('hidden')) {
                  if (!modalContent.contains(e.target)) {
                     if (!e.target.closest('button, a')) {
@@ -1683,7 +1672,19 @@
             }
         });
 
-        document.querySelector('main').addEventListener('click', handleTableClicks);
+        document.querySelector('main').addEventListener('click', (e) => {
+             const calendarEvent = e.target.closest('.calendar-event');
+             if (calendarEvent) {
+                e.preventDefault();
+                const studentId = calendarEvent.dataset.studentId;
+                const student = state.students.find(s => s.id == studentId);
+                if (student) {
+                    showModal(getStudentStatusModalHTML(student));
+                }
+                return;
+            }
+            handleTableClicks(e);
+        });
         
         // --- AUTHENTICATION ---
         authForm.addEventListener('submit', (e) => {
@@ -1723,3 +1724,4 @@
 </script>
 </body>
 </html>
+
