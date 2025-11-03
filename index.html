@@ -904,7 +904,7 @@
                 Sistem genelinde, vadesi geçen borçlara gecikme tazminatı uygulanmasını istiyorsanız aktif ediniz.
             </p>
             <p class="setting-description">
-                <strong>Son Etkinleştirme Tarihi:</strong> <span id="lastLateFeeActivationDate">Hiçbir zaman</span>
+                <strong>Son Uygulanan Ay:</strong> <span id="lastLateFeeActivationDate">Yükleniyor...</span>
             </p>
         </div>
       </div>
@@ -1119,6 +1119,7 @@
         let loggedInUsername = null;
         let adminCredentials = {};
         let viewerAdminCredentials = {};
+        let lateFeeSettings = {};
         let currentAdminRole = null;
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         let currentAdminDate = new Date();
@@ -1185,6 +1186,24 @@
             loadAdminExpensesTable();
         }
 
+        async function checkAndApplyLateFees() {
+            try {
+                const now = new Date();
+                const currentMonthKey = `${now.getMonth()}-${now.getFullYear()}`;
+                
+                if (lateFeeSettings.enabled && lateFeeSettings.lastAppliedMonth !== currentMonthKey) {
+                    console.log("Gecikme tazminatı kontrolü tetiklendi...");
+                    const success = await applyLateCompensation();
+                    if (success) {
+                        lateFeeSettings.lastAppliedMonth = currentMonthKey;
+                        await setDoc(doc(db, 'settings', 'lateFee'), { lastAppliedMonth: currentMonthKey }, { merge: true });
+                        console.log("Gecikme tazminatı bu ay için uygulandı ve kaydedildi.");
+                    }
+                }
+            } catch (error) {
+                console.error("Otomatik gecikme tazminatı kontrolünde hata: ", error);
+            }
+        }
 
         async function login() {
             const username = document.getElementById("username").value.trim().toUpperCase();
@@ -1201,12 +1220,14 @@
             if (username === adminCredentials.username?.toUpperCase() && password === adminCredentials.password) {
                 currentAdminRole = 'full';
                 await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
+                await checkAndApplyLateFees();
                 setupAdminPanel(currentAdminRole);
                 return;
             }
             
             if (username === viewerAdminCredentials.username?.toUpperCase() && password === viewerAdminCredentials.password) {
                 currentAdminRole = 'viewer';
+                await checkAndApplyLateFees();
                 setupAdminPanel(currentAdminRole);
                 return;
             }
@@ -1459,19 +1480,20 @@
                 listContainer.innerHTML = '';
                 let totalExpense = 0;
 
-                const q = query(collection(db, 'expenses'), 
-                  where("tarih_ay", "==", pubData.month),
-                  where("tarih_yil", "==", Number(pubData.year))
-                );
-                const expensesSnapshot = await getDocs(q);
+                const expensesSnapshot = await getDocs(collection(db, 'expenses'));
+                const expenses = [];
+                expensesSnapshot.forEach(d => {
+                    const expense = d.data();
+                    if (expense.tarih_ay === pubData.month && expense.tarih_yil === Number(pubData.year)) {
+                        expenses.push(expense);
+                    }
+                });
 
-                if (expensesSnapshot.empty) {
+
+                if (expenses.length === 0) {
                     listContainer.innerHTML = `<p style="text-align:center; padding: 20px 0;">${pubData.month} ${pubData.year} için gider kaydı bulunmamaktadır.</p>`;
                 } else {
                     let cardsHtml = '';
-                    const expenses = [];
-                    expensesSnapshot.forEach(d => expenses.push(d.data()));
-
                     expenses.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
                     
                     expenses.forEach(expense => {
@@ -1673,9 +1695,12 @@
             let successCount = 0;
             try {
                 for (const flat of apartmentsToAdd) {
-                    const q = query(collection(db, 'apartments', flat, 'debts'), where("ay", "==", ay), where("tip", "==", tip));
+                    const q = query(collection(db, 'apartments', flat, 'debts'), where("ay", "==", ay));
                     const existing = await getDocs(q);
-                    if (existing.empty) {
+                    
+                    const alreadyExists = !existing.empty && existing.docs.some(doc => doc.data().tip === tip);
+
+                    if (!alreadyExists) {
                         const newDebtRef = doc(collection(db, 'apartments', flat, 'debts'));
                         batch.set(newDebtRef, { ay, tutar, tip, odendi: false });
                         successCount++;
@@ -2081,15 +2106,19 @@
             const isPublished = publishedExpenseData.published && publishedExpenseData.month === month && publishedExpenseData.year === Number(year);
             publishButton.textContent = isPublished ? 'Yayından Kaldır' : 'Yayınla';
 
-            const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
-            const expensesSnapshot = await getDocs(q);
+            const expensesSnapshot = await getDocs(collection(db, 'expenses'));
+            const expenses = [];
+            expensesSnapshot.forEach(d => {
+                const expense = d.data();
+                if (expense.tarih_ay === month && expense.tarih_yil === Number(year)) {
+                    expenses.push({id: d.id, ...expense});
+                }
+            });
 
-            if (expensesSnapshot.empty) {
+            if (expenses.length === 0) {
                 listContainer.innerHTML = '<p style="text-align:center; padding: 20px 0;">Bu dönem için gider kaydı yok.</p>';
             } else {
                 let cardsHtml = '';
-                const expenses = [];
-                expensesSnapshot.forEach(d => expenses.push({id: d.id, ...d.data()}));
                 
                 // Sort by date, most recent first
                 expenses.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
@@ -2217,8 +2246,6 @@
         }
 
         async function applyLateCompensation() {
-            showMessage("addDebtMessage", "Gecikme tazminatları hesaplanıyor ve uygulanıyor...", false);
-
             const currentDate = new Date();
             const currentMonthIndex = currentDate.getMonth();
             const currentYear = currentDate.getFullYear();
@@ -2230,13 +2257,13 @@
             try {
                 for (const daire of daireler) {
                     const debtsRef = collection(db, 'apartments', daire, 'debts');
-                    const q = query(debtsRef, where("odendi", "==", false), where("tip", "!=", "gecikme-tazminati"));
+                    const q = query(debtsRef, where("odendi", "==", false));
                     const unpaidDebtsSnap = await getDocs(q);
 
                     unpaidDebtsSnap.forEach(debtDoc => {
                         const debt = debtDoc.data();
                         
-                        if (debt.gecikmeTazminatiUygulandi === true) {
+                        if (debt.tip === 'gecikme-tazminati' || debt.gecikmeTazminatiUygulandi === true) {
                             return; 
                         }
 
@@ -2267,8 +2294,9 @@
                     await batch.commit();
                     showMessage("addDebtMessage", `${feeAppliedCount} adet borca gecikme tazminatı başarıyla uygulandı.`);
                 } else {
-                    showMessage("addDebtMessage", "Gecikme tazminatı uygulanacak yeni borç bulunamadı.");
+                    console.log("Gecikme tazminatı uygulanacak yeni borç bulunamadı.");
                 }
+                
                 await updateAdminDashboard();
                 return true;
             } catch (error) {
@@ -2278,46 +2306,30 @@
             }
         }
         
-        async function loadLateFeeSettings() {
-            try {
-                const settingsDoc = await getDocFromFirestore(doc(db, 'settings', 'lateFee'));
-                if (settingsDoc.exists()) {
-                    const data = settingsDoc.data();
-                    document.getElementById('lateFeeToggle').checked = data.enabled || false;
-                    if (data.lastEnabled) {
-                        const date = new Date(data.lastEnabled.seconds * 1000);
-                        document.getElementById('lastLateFeeActivationDate').textContent = date.toLocaleString('tr-TR');
-                    } else {
-                         document.getElementById('lastLateFeeActivationDate').textContent = 'Hiçbir zaman';
-                    }
-                }
-            } catch (error) {
-                console.error("Gecikme tazminatı ayarları yüklenirken hata:", error);
+        function loadLateFeeSettings() {
+            document.getElementById('lateFeeToggle').checked = lateFeeSettings.enabled || false;
+            if (lateFeeSettings.lastAppliedMonth) {
+                const [monthIndex, year] = lateFeeSettings.lastAppliedMonth.split('-');
+                 document.getElementById('lastLateFeeActivationDate').textContent = `${aylar[parseInt(monthIndex)]} ${year}`;
+            } else {
+                 document.getElementById('lastLateFeeActivationDate').textContent = 'Hiç uygulanmadı';
             }
         }
         
         async function handleLateFeeToggle(event) {
             const isEnabled = event.target.checked;
-            const toggle = event.target;
-
+            
             if (isEnabled) {
-                if (confirm("Gecikme tazminatı sistemini etkinleştirmek istediğinizden emin misiniz? Bu işlem, vadesi geçmiş ve ödenmemiş tüm borçlara %5 tazminat uygulayacaktır.")) {
-                    const success = await applyLateCompensation();
-                    if (success) {
-                        await setDoc(doc(db, 'settings', 'lateFee'), { enabled: true, lastEnabled: new Date() }, { merge: true });
-                        await loadLateFeeSettings();
-                    } else {
-                        toggle.checked = false;
-                    }
-                } else {
-                    toggle.checked = false;
-                }
+                await setDoc(doc(db, 'settings', 'lateFee'), { enabled: true }, { merge: true });
+                lateFeeSettings.enabled = true;
+                showMessage("addDebtMessage", "Gecikme tazminatı sistemi etkinleştirildi.");
             } else {
-                if (confirm("Gecikme tazminatı sistemini devre dışı bırakmak istediğinizden emin misiniz?")) {
+                 if (confirm("Gecikme tazminatı sistemini devre dışı bırakmak istediğinizden emin misiniz?")) {
                     await setDoc(doc(db, 'settings', 'lateFee'), { enabled: false }, { merge: true });
+                    lateFeeSettings.enabled = false;
                     showMessage("addDebtMessage", "Gecikme tazminatı sistemi devre dışı bırakıldı.");
                 } else {
-                    toggle.checked = true;
+                    event.target.checked = true;
                 }
             }
         }
@@ -2372,7 +2384,7 @@
                 updateAdminDateDisplay();
                 updateExpenseDateDisplay();
                 await updateAdminDashboard();
-                await loadLateFeeSettings();
+                loadLateFeeSettings(); // Load from local state
                 await loadApartmentsListPage();
                 await loadAdminView();
             } catch(error) {
@@ -2392,22 +2404,22 @@
             const expenseData = [];
             let totalExpense = 0;
             try {
-                const q = query(collection(db, 'expenses'), where("tarih_ay", "==", month), where("tarih_yil", "==", Number(year)));
-                const expensesSnapshot = await getDocs(q);
-
-                if (expensesSnapshot.empty) {
-                   return showMessage("expenseMessage", "Seçili ay için gider kaydı bulunamadı.", true);
-                }
-
+                const expensesSnapshot = await getDocs(collection(db, 'expenses'));
                 expensesSnapshot.forEach(docSnap => {
                     const expense = docSnap.data();
-                    expenseData.push([
-                        new Date(expense.tarih).toLocaleDateString('tr-TR'),
-                        expense.harcamaAdi,
-                        `${Number(expense.tutar).toFixed(2)} TL`
-                    ]);
-                    totalExpense += Number(expense.tutar);
+                    if (expense.tarih_ay === month && expense.tarih_yil === Number(year)) {
+                        expenseData.push([
+                            new Date(expense.tarih).toLocaleDateString('tr-TR'),
+                            expense.harcamaAdi,
+                            `${Number(expense.tutar).toFixed(2)} TL`
+                        ]);
+                        totalExpense += Number(expense.tutar);
+                    }
                 });
+
+                if (expenseData.length === 0) {
+                   return showMessage("expenseMessage", "Seçili ay için gider kaydı bulunamadı.", true);
+                }
 
                 expenseData.sort((a, b) => new Date(b[0].split('.').reverse().join('-')) - new Date(a[0].split('.').reverse().join('-')));
 
@@ -2437,7 +2449,7 @@
                 showMessage("expenseMessage", "PDF oluşturulurken bir hata oluştu.", true);
             }
         }
-
+        
         function addEventListeners() {
             document.getElementById('loginButton').addEventListener('click', login);
             document.getElementById('logoutBtnUser').addEventListener('click', logout);
@@ -2849,6 +2861,14 @@
                     viewerAdminCredentials = { username: "YONETIM", password: "yon2599" };
                 }
 
+                const lateFeeDoc = await getDocFromFirestore(doc(db, 'settings', 'lateFee'));
+                if (lateFeeDoc.exists()) {
+                    lateFeeSettings = lateFeeDoc.data();
+                } else {
+                    await setDoc(doc(db, 'settings', 'lateFee'), { enabled: false, lastAppliedMonth: null });
+                    lateFeeSettings = { enabled: false, lastAppliedMonth: null };
+                }
+
 
                 const batch = writeBatch(db);
                 let passwordSetCount = 0;
@@ -2877,3 +2897,4 @@
   </script>
 </body>
 </html>
+
