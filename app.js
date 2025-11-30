@@ -112,7 +112,6 @@ async function setupPanel(type) {
         
         if(currentAdminRole === 'viewer') {
             document.querySelectorAll('.admin-only').forEach(e => e.classList.add('hidden'));
-            // Hide Finance and Settings Nav for Viewer
             document.getElementById('nav-finance').style.display = 'none';
             document.getElementById('nav-settings').style.display = 'none';
         }
@@ -139,6 +138,7 @@ async function setupPanel(type) {
     }
 }
 
+// LOGIC
 function fillFlatSelects() {
     const s = ["islemDaireSelect", "borcKime", "sifreDaire"];
     s.forEach(id => {
@@ -189,6 +189,8 @@ async function loadAdminTransactionLedger() {
     const info = document.getElementById("userInfoDisplay");
     list.innerHTML = '';
     
+    if(!daire) return; // Guard clause if nothing selected
+
     const uD = allApartmentsData.find(d => d.id === daire) || {};
     info.innerHTML = `<p><strong>${daire}</strong> - ${uD.adi || ''} ${uD.soyadi || ''}</p>`;
     info.classList.remove('hidden');
@@ -204,7 +206,6 @@ async function loadAdminTransactionLedger() {
         const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
         const btns = currentAdminRole === 'full' ? `<button class="btn btn-danger btn-sm" onclick="delTrans('${daire}','${doc.id}')">Sil</button>` : '';
         
-        // Add data-label for mobile view
         list.innerHTML += `<tr>
             <td data-label="Tarih">${formatDate(t.tarih)}</td>
             <td data-label="Açıklama">${t.aciklama}</td>
@@ -313,11 +314,16 @@ async function loadApartmentsListPage() {
         allApartmentsData.push({ id: d, ...f.data(), balance: bal });
     }
     const cont = document.getElementById('apartmentListContainer');
-    cont.innerHTML = allApartmentsData.map(d => `
-        <div class="apartment-list-item" onclick="openAptDetail('${d.id}')">
+    cont.innerHTML = allApartmentsData.map(d => {
+        let colorClass = 'text-muted'; // Balance 0
+        if (d.balance > 0) colorClass = 'text-danger'; // Debt
+        if (d.balance < 0) colorClass = 'text-success'; // Credit
+        
+        return `<div class="apartment-list-item" onclick="openAptDetail('${d.id}')">
             <div class="apartment-info"><span class="daire-no">${d.id}</span><span>${d.adi || ''} ${d.soyadi || ''}</span></div>
-            <div class="apartment-balance"><span class="balance-value ${d.balance <= 0 ? 'zero' : ''}">${formatCurrency(d.balance)}</span></div>
-        </div>`).join('');
+            <div class="apartment-balance"><span class="balance-value ${colorClass}">${formatCurrency(d.balance)}</span></div>
+        </div>`;
+    }).join('');
 }
 
 // USER FUNCTIONS
@@ -330,7 +336,6 @@ async function loadUserTransactionLedger(u) {
         const t = doc.data();
         if(t.tarih > todayStr) return;
         bal += Number(t.tutar);
-        // data-label for mobile view
         list.innerHTML += `<tr>
             <td data-label="Tarih">${formatDate(t.tarih)}</td>
             <td data-label="Açıklama">${t.aciklama}</td>
@@ -449,7 +454,9 @@ document.getElementById('deleteAllTransactionsBtn').onclick = async () => {
     }
 };
 
-// ACTIONS
+// --- ACTIONS: Debt & Payment & Late Fee ---
+
+// Add Debt
 document.getElementById('addDebtBtn').addEventListener('click', async () => {
     const d = document.getElementById("borcKime").value, t = document.getElementById("borcTarih").value, a = document.getElementById("borcAciklama").value, m = Number(document.getElementById("borcTutar").value);
     if (!d || !t || !a || !m) return showMessage("addDebtMessage", "Eksik.", true);
@@ -459,12 +466,79 @@ document.getElementById('addDebtBtn').addEventListener('click', async () => {
     await b.commit(); showMessage("addDebtMessage", "Eklendi."); loadAdminTransactionLedger();
 });
 
+// Add Payment
 document.getElementById('addTahsilatBtn').addEventListener('click', async () => {
     const d = document.getElementById("islemDaireSelect").value, t = document.getElementById("tahsilatTarih").value, a = document.getElementById("tahsilatAciklama").value, m = Number(document.getElementById("tahsilatTutar").value);
     if (!d || !t || !m) return showMessage("addTahsilatMessage", "Eksik.", true);
     await addDoc(collection(db, 'apartments', d, 'transactions'), { tarih:t, tur:'tahsilat', aciklama:a || 'Ödeme', tutar:-Math.abs(m), timestamp: new Date() });
     showMessage("addTahsilatMessage", "Eklendi."); loadAdminTransactionLedger();
 });
+
+// ** LATE FEE IMPLEMENTATION **
+// Add Button Logic
+document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
+    const now = new Date();
+    const month = aylar[now.getMonth()];
+    const year = now.getFullYear();
+    const feeName = `${month} ${year} Gecikme Tazminatı`;
+    
+    if(!confirm(`DİKKAT: Tüm dairelerin ana borçları (Aidat/Avans) taranacak ve ödenmeyenlere %5 gecikme tazminatı eklenecek. \n\nDönem: ${feeName}\n\nOnaylıyor musunuz?`)) return;
+
+    const b = writeBatch(db);
+    let count = 0;
+
+    for (const d of daireler) {
+        // Fetch all transactions
+        const s = await getDocs(collection(db, 'apartments', d, 'transactions'));
+        let principalDebt = 0; // Ana Borç Toplamı
+        let totalPayments = 0; // Toplam Ödeme
+        
+        // Check if fee already applied for this month
+        let alreadyApplied = false;
+
+        s.forEach(docSnap => {
+            const t = docSnap.data();
+            if(t.aciklama === feeName) alreadyApplied = true;
+
+            // Simple Logic: Sum all debts that are NOT 'Gecikme Tazminatı' to find Principal
+            // Note: This requires accurate descriptions.
+            if(t.tur === 'borc') {
+                if(!t.aciklama.toLowerCase().includes('gecikme')) {
+                    principalDebt += Number(t.tutar);
+                }
+            } else if (t.tur === 'tahsilat') {
+                totalPayments += Math.abs(Number(t.tutar));
+            }
+        });
+
+        if(alreadyApplied) continue; // Skip if already applied
+
+        // Remaining Principal = Principal Debt - Total Payments
+        // If payments cover principal, result is <= 0.
+        let remainingPrincipal = principalDebt - totalPayments;
+
+        if (remainingPrincipal > 0) {
+            const feeAmount = parseFloat((remainingPrincipal * 0.05).toFixed(2));
+            const ref = doc(collection(db, 'apartments', d, 'transactions'));
+            b.set(ref, {
+                tarih: todayStr,
+                tur: 'borc',
+                aciklama: feeName,
+                tutar: feeAmount,
+                timestamp: new Date()
+            });
+            count++;
+        }
+    }
+
+    if(count > 0) {
+        await b.commit();
+        showMessage("addDebtMessage", `${count} daireye tazminat uygulandı.`);
+    } else {
+        showMessage("addDebtMessage", "Uygulanacak borç bulunamadı veya zaten uygulanmış.", true);
+    }
+});
+
 
 document.getElementById('saveExpenseBtn').addEventListener('click', async () => {
     const d = document.getElementById("expenseDateInput").value, n = document.getElementById("expenseNameInput").value, a = Number(document.getElementById("expenseAmountInput").value);
@@ -524,20 +598,7 @@ window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(d
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
 window.openAptDetail = async (id) => {
     const d = allApartmentsData.find(x => x.id === id);
-    const lastLogin = d.lastLogin ? new Date(d.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
-    document.getElementById('apartmentDetailContent').innerHTML = `
-        <p><strong>Ad Soyad:</strong> ${d.adi||''} ${d.soyadi||''}</p>
-        <p><strong>E-posta:</strong> ${d.mail || 'Yok'}</p>
-        <p><strong>Telefon:</strong> ${d.telefon || 'Yok'}</p>
-        <p><strong>Adres:</strong> ${d.adres || 'Yok'}</p>
-        <p><strong>Son Giriş:</strong> ${lastLogin}</p>
-        <p><strong>Bakiye:</strong> ${formatCurrency(d.balance)}</p>`;
-    
-    // Bind buttons dynamically
-    document.getElementById('editApartmentDetailBtn').onclick = () => window.editApt(id);
-    document.getElementById('deleteApartmentBtn').onclick = () => window.delApt(id);
-    document.getElementById('downloadApartmentStatementBtn').onclick = () => window.downloadAccountStatementPdf(id);
-
+    document.getElementById('apartmentDetailContent').innerHTML = `<p>${d.adi||''} ${d.soyadi||''}</p><p>Bakiye: ${formatCurrency(d.balance)}</p>`;
     document.getElementById('apartmentDetailModal').style.display = 'block';
 };
 
@@ -569,6 +630,9 @@ window.delApt = async (id) => {
 
 // PDF Export (Global Scope for access from Modal)
 window.downloadAccountStatementPdf = async function(daireId) {
+    if(!daireId) daireId = document.getElementById("islemDaireSelect").value; // Fallback if called without ID
+    if(!daireId) return alert("Daire seçiniz");
+
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF();
     const q = query(collection(db, 'apartments', daireId, 'transactions'), orderBy("tarih", "asc"));
