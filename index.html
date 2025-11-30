@@ -30,7 +30,7 @@
                 <label class="custom-checkbox">
                     <input type="checkbox" id="loginTerms">
                     <span class="checkmark"></span>
-                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Sözleşmesini</a> okudum, onaylıyorum.</span>
+                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesini</a> okudum, onaylıyorum.</span>
                 </label>
             </div>
             <button id="loginButton" class="btn-login" disabled>GİRİŞ YAP</button>
@@ -221,24 +221,30 @@
                 </div>
             </div>
 
-            <!-- KULLANICI: BAKİYE -->
+            <!-- KULLANICI: BAKİYE (Akordeon Yapısı) -->
             <div id="user-view-debt" class="view-section hidden">
                 <h2 class="page-title">Hesap Durumu</h2>
-                <div class="balance-summary-card">
-                    <div>
+                <!-- Tıklanabilir Özet Kartı -->
+                <div id="userBalanceCard" class="balance-summary-card collapsible-trigger">
+                    <div class="balance-content">
                         <span class="summary-title">Güncel Bakiye</span>
                         <span id="userUnpaidTotal" class="summary-amount">...</span>
                     </div>
+                    <span class="toggle-icon">▼</span>
                 </div>
-                <div class="card mt-3">
+                
+                <!-- Gizlenip/Açılan Detay Alanı -->
+                <div id="userBalanceDetails" class="card mt-3 collapsed-content">
+                    <h4 style="border-bottom: 1px solid #eee; padding-bottom:10px; margin-top:0;">Hesap Hareketleri</h4>
                     <div class="table-responsive">
-                        <table class="transaction-table">
+                        <table class="transaction-table mobile-responsive-table">
                             <thead><tr><th>Tarih</th><th>Açıklama</th><th>Tutar</th><th>Bakiye</th></tr></thead>
                             <tbody id="userTransactionList"></tbody>
                         </table>
                     </div>
                     <div class="totals" id="userDebtTotals"></div>
                 </div>
+                
                 <div class="bank-info mt-3">
                     <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
                     <p><strong>IBAN:</strong> TR510001000110981102095001</p>
@@ -272,8 +278,14 @@
     <div id="termsModal" class="modal">
         <div class="modal-content">
             <span class="modal-close">&times;</span>
-            <h4>Kullanıcı Sözleşmesi</h4>
-            <div class="terms-box"><p>Site yönetim kuralları ve KVKK metni...</p></div>
+            <h4>Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesi</h4>
+            <div class="terms-box" style="height: 300px; overflow-y: scroll; border:1px solid #eee; padding:10px;">
+                <p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, kişisel verileriniz; veri sorumlusu olarak Yıldız Konakları Site Yönetimi tarafından aşağıda açıklanan kapsamda işlenebilecektir.</p>
+                <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
+                <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrurultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
+                <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
+                <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
+            </div>
         </div>
     </div>
 
