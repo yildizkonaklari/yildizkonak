@@ -41,6 +41,9 @@
     <!-- ANA UYGULAMA -->
     <div id="app-layout" class="layout-wrapper hidden">
         
+        <!-- Sidebar Overlay (Mobil için) -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
         <!-- YAN MENÜ -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -53,7 +56,8 @@
                     <button class="nav-item active" data-target="view-dashboard">
                         <span class="icon">📊</span> Özet Durum
                     </button>
-                    <button class="nav-item" data-target="view-finance">
+                    <!-- ID eklendi: Gözlemci için gizlenecek -->
+                    <button class="nav-item" id="nav-finance" data-target="view-finance">
                         <span class="icon">💳</span> Finans & İşlemler
                     </button>
                     <button class="nav-item" data-target="view-expenses">
@@ -62,7 +66,8 @@
                     <button class="nav-item" data-target="view-apartments">
                         <span class="icon">🏢</span> Daire Listesi
                     </button>
-                    <button class="nav-item" data-target="view-settings">
+                    <!-- ID eklendi: Gözlemci için gizlenecek -->
+                    <button class="nav-item" id="nav-settings" data-target="view-settings">
                         <span class="icon">⚙️</span> Ayarlar
                     </button>
                 </div>
@@ -126,7 +131,7 @@
                 <h2 class="page-title">Finansal İşlemler</h2>
                 <div class="card">
                     <label>İşlem Yapılacak Daire:</label>
-                    <select id="islemDaireSelect" class="form-control"></select>
+                    <select id="islemDaireSelect" class="form-control mb-3"></select>
 
                     <div class="tab-container">
                         <button class="tab-button active" id="btnTabBorc">Borç Ekle</button>
@@ -136,20 +141,20 @@
 
                     <div id="contentTabBorc" class="tab-content-panel active">
                         <div class="form-row">
-                            <div class="col"><select id="borcKime" class="form-control"></select></div>
-                            <div class="col"><input type="date" id="borcTarih" class="form-control"></div>
+                            <div class="col"><label>Kime:</label><select id="borcKime" class="form-control"></select></div>
+                            <div class="col"><label>Tarih:</label><input type="date" id="borcTarih" class="form-control"></div>
                         </div>
-                        <input type="text" id="borcAciklama" class="form-control" placeholder="Açıklama (Örn: Aidat)">
-                        <input type="number" id="borcTutar" class="form-control" placeholder="Tutar (₺)">
+                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama (Örn: Aidat)">
+                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar (₺)">
                         <button id="addDebtBtn" class="btn btn-primary full-width">Borç Ekle</button>
                         <div id="addDebtMessage" class="message hidden"></div>
                     </div>
 
                     <div id="contentTabTahsilat" class="tab-content-panel">
-                        <p class="info-text">(Seçili daireye işlenir)</p>
-                        <input type="date" id="tahsilatTarih" class="form-control">
-                        <input type="number" id="tahsilatTutar" class="form-control" placeholder="Tutar (₺)">
-                        <input type="text" id="tahsilatAciklama" class="form-control" placeholder="Açıklama">
+                        <p class="info-text">(Yukarıda seçilen daireye işlenir)</p>
+                        <input type="date" id="tahsilatTarih" class="form-control mb-2">
+                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar (₺)">
+                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama (Örn: Havale)">
                         <button id="addTahsilatBtn" class="btn btn-success full-width">Tahsilat Ekle</button>
                         <div id="addTahsilatMessage" class="message hidden"></div>
                     </div>
@@ -157,7 +162,7 @@
                     <div id="contentTabEkstre" class="tab-content-panel">
                         <div id="userInfoDisplay" class="user-profile-display hidden"></div>
                         <div class="table-responsive">
-                            <table class="transaction-table">
+                            <table class="transaction-table mobile-responsive-table">
                                 <thead><tr><th>Tarih</th><th>Açıklama</th><th>Tutar</th><th>Bakiye</th><th class="admin-only"></th></tr></thead>
                                 <tbody id="adminTransactionList"></tbody>
                             </table>
@@ -207,17 +212,51 @@
             <!-- YÖNETİCİ: AYARLAR -->
             <div id="view-settings" class="view-section hidden">
                 <h2 class="page-title">Ayarlar</h2>
+                
+                <!-- Şifre İşlemleri -->
                 <div class="card">
-                    <h4>Şifre Değiştir</h4>
+                    <h4>Şifre İşlemleri</h4>
                     <div class="form-row">
-                        <select id="sifreDaire" class="form-control"></select>
-                        <input type="password" id="yeniSifre" class="form-control" placeholder="Yeni Şifre">
+                        <div class="col">
+                            <label>Daire Seç:</label>
+                            <select id="sifreDaire" class="form-control"></select>
+                        </div>
+                        <div class="col">
+                            <label>Yeni Şifre:</label>
+                            <input type="password" id="yeniSifre" class="form-control">
+                        </div>
                     </div>
-                    <button id="savePasswordBtn" class="btn btn-primary full-width mt-2">Kaydet</button>
-                    <hr>
-                    <input type="password" id="adminYeniSifre" class="form-control mt-3" placeholder="Yeni Admin Şifresi">
-                    <button id="saveAdminPasswordBtn" class="btn btn-danger full-width mt-2">Admin Şifresini Güncelle</button>
+                    <button id="savePasswordBtn" class="btn btn-primary full-width mt-2">Daire Şifresini Kaydet</button>
+                    
+                    <hr class="section-divider">
+                    
+                    <div class="form-row">
+                        <div class="col">
+                            <label>Yönetici (Admin) Şifresi:</label>
+                            <input type="password" id="adminYeniSifre" class="form-control" placeholder="Yeni Admin Şifresi">
+                            <button id="saveAdminPasswordBtn" class="btn btn-danger full-width mt-2">Admin Şifresini Güncelle</button>
+                        </div>
+                        <div class="col">
+                            <label>Gözlemci (Yönetim) Şifresi:</label>
+                            <input type="password" id="viewerAdminYeniSifre" class="form-control" placeholder="Yeni Gözlemci Şifresi">
+                            <button id="saveViewerAdminPasswordBtn" class="btn btn-warning full-width mt-2">Gözlemci Şifresini Güncelle</button>
+                        </div>
+                    </div>
                     <div id="passwordMessage" class="message hidden"></div>
+                </div>
+
+                <!-- Toplu İşlemler -->
+                <div class="card mt-3">
+                    <h4>Toplu Profil İşlemleri</h4>
+                    <p style="font-size:0.9em; color:#666;">Daire sahiplerinin bilgilerini Excel/CSV ile toplu yükleyin.</p>
+                    <div class="flex-wrap-gap">
+                        <button id="downloadTemplateBtn" class="btn btn-outline">Şablon İndir (.csv)</button>
+                        <input type="file" id="profileTemplateInput" accept=".csv" style="display: none;">
+                        <button id="uploadTemplateBtn" class="btn btn-outline">Şablon Yükle</button>
+                        <button id="downloadAllProfilesCsvBtn" class="btn btn-success">Tüm Verileri İndir (Excel)</button>
+                        <button id="deleteAllTransactionsBtn" class="btn btn-danger" style="margin-left:auto;">Veritabanını Sıfırla</button>
+                    </div>
+                    <div id="settingsMessage" class="message hidden"></div>
                 </div>
             </div>
 
@@ -304,11 +343,11 @@
     <div id="apartmentDetailModal" class="modal">
         <div class="modal-content">
             <span class="modal-close">&times;</span>
-            <h3 id="apartmentDetailTitle">Detay</h3>
-            <div id="apartmentDetailContent"></div>
-            <div class="modal-actions mt-3">
+            <h3 id="apartmentDetailTitle">Daire Detayları</h3>
+            <div id="apartmentDetailContent" style="margin-bottom: 20px;"></div>
+            <div class="modal-actions" style="display: flex; gap: 10px; justify-content: space-between;">
                 <button id="editApartmentDetailBtn" class="btn btn-warning">Düzenle</button>
-                <button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre</button>
+                <button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre (PDF)</button>
                 <button id="deleteApartmentBtn" class="btn btn-danger">Sil</button>
             </div>
         </div>
