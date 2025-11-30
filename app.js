@@ -468,7 +468,14 @@ async function init() {
 }
 
 // --- EVENT LISTENERS ---
+// LOGIN BUTTON LISTENER (GİRİŞ)
 document.getElementById('loginButton').addEventListener('click', login);
+
+// *** EKSİK OLAN KISIM: KULLANICI SÖZLEŞMESİ CHECKBOX LISTENER ***
+document.getElementById('loginTerms').addEventListener('change', (e) => {
+    document.getElementById('loginButton').disabled = !e.target.checked;
+});
+
 document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
 document.getElementById('sidebarToggle').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.toggle('active');
