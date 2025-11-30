@@ -154,39 +154,21 @@ async function updateAdminDashboard() {
     const m = aylar[new Date().getMonth()];
     const y = new Date().getFullYear();
     let income = 0, expense = 0, monthInc = 0, monthExp = 0, debt = 0;
-    
-    // Son işlemler için geçici dizi
-    let recentTxns = [];
 
     for (const d of daireler) {
         const s = await getDocs(collection(db, 'apartments', d, 'transactions'));
         let bal = 0;
         s.forEach(x => {
             const t = x.data();
-            
-            // Tüm işlemleri topla (Tarih filtresi olmadan, son işlemleri görmek için)
-            // Ancak listeleme yaparken sadece işlem tarihine bakarız.
-            // Dashboard hesaplaması için tarih kontrolü:
-            if(t.tarih <= todayStr) {
-                bal += Number(t.tutar);
-                if(t.tur === 'tahsilat') {
-                    income += Math.abs(Number(t.tutar));
-                    if(new Date(t.tarih).getMonth() === new Date().getMonth()) monthInc += Math.abs(Number(t.tutar));
-                }
+            if(t.tarih > todayStr) return;
+            bal += Number(t.tutar);
+            if(t.tur === 'tahsilat') {
+                income += Math.abs(Number(t.tutar));
+                if(new Date(t.tarih).getMonth() === new Date().getMonth()) monthInc += Math.abs(Number(t.tutar));
             }
-
-            // Son işlemler listesine ekle (Timestamp varsa kullan, yoksa tarihe göre)
-            const sortDate = t.timestamp ? t.timestamp.toDate() : new Date(t.tarih);
-            recentTxns.push({
-                daire: d,
-                ...t,
-                sortDate: sortDate
-            });
         });
         if(bal > 0) debt += bal;
     }
-    
-    // Giderleri topla
     const eS = await getDocs(collection(db, 'expenses'));
     eS.forEach(x => {
         const e = x.data();
@@ -198,42 +180,6 @@ async function updateAdminDashboard() {
     document.getElementById('dashboardMonthlyIncome').textContent = formatCurrency(monthInc);
     document.getElementById('dashboardMonthlyExpense').textContent = formatCurrency(monthExp);
     document.getElementById('dashboardUnpaidCount').textContent = formatCurrency(debt);
-
-    // Son İşlemleri Render Et
-    renderRecentTransactions(recentTxns);
-}
-
-// YENİ FONKSİYON: Son İşlemleri Listele
-function renderRecentTransactions(txns) {
-    const tbody = document.getElementById('dashboardRecentTransactions');
-    if(!txns || txns.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">İşlem bulunamadı.</td></tr>';
-        return;
-    }
-
-    // Tarihe göre yeniden eskiye sırala
-    txns.sort((a, b) => b.sortDate - a.sortDate);
-    
-    // İlk 10 tanesini al
-    const top10 = txns.slice(0, 10);
-
-    tbody.innerHTML = top10.map(t => {
-        const typeClass = t.tur === 'borc' ? 'status-borc' : 'status-tahsilat';
-        const typeText = t.tur === 'borc' ? 'Borç' : 'Tahsilat';
-        const amountColor = t.tur === 'borc' ? 'color:var(--danger)' : 'color:var(--success)';
-        
-        return `
-            <tr>
-                <td><strong>${t.daire}</strong></td>
-                <td><span class="status-badge ${typeClass}">${typeText}</span></td>
-                <td>${t.aciklama}</td>
-                <td>${formatDate(t.tarih)}</td>
-                <td style="text-align:right; font-weight:bold; ${amountColor}">
-                    ${formatCurrency(Math.abs(t.tutar))}
-                </td>
-            </tr>
-        `;
-    }).join('');
 }
 
 // 2. FINANCE
@@ -604,20 +550,16 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async () => 
 
 // LISTENERS
 document.getElementById('loginButton').addEventListener('click', login);
-// ... existing listeners ...
+document.getElementById('loginTerms').addEventListener('change', (e) => document.getElementById('loginButton').disabled = !e.target.checked);
+document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
+document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', (e) => switchView(e.currentTarget.dataset.target)));
+document.getElementById('btnTabBorc').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabBorc').classList.add('active'); });
+document.getElementById('btnTabTahsilat').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabTahsilat').classList.add('active'); });
 document.getElementById('btnTabEkstre').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabEkstre').classList.add('active'); loadAdminTransactionLedger(); });
 document.getElementById('islemDaireSelect').addEventListener('change', () => { if(document.getElementById('contentTabEkstre').classList.contains('active')) loadAdminTransactionLedger(); });
-
-// *** PDF BUTONU DÜZELTMESİ BURADA ***
-document.getElementById('downloadAccountStatementBtn').addEventListener('click', () => {
-    const daireId = document.getElementById('islemDaireSelect').value;
-    if(daireId) {
-        window.downloadAccountStatementPdf(daireId);
-    } else {
-        showMessage("adminTableMessage", "Lütfen bir daire seçin.", true);
-    }
-});
-
 document.getElementById('expensePrevMonthBtn').addEventListener('click', () => { currentExpenseDate.setMonth(currentExpenseDate.getMonth()-1); updateExpenseDateDisplay(); });
 document.getElementById('expenseNextMonthBtn').addEventListener('click', () => { currentExpenseDate.setMonth(currentExpenseDate.getMonth()+1); updateExpenseDateDisplay(); });
 document.getElementById('publishButton').addEventListener('click', toggleExpensesVisibility);
