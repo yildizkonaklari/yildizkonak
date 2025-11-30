@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <link rel="stylesheet" href="style.css">
-    
     <!-- PDF ve Tablo Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
@@ -30,7 +29,7 @@
                 <label class="custom-checkbox">
                     <input type="checkbox" id="loginTerms">
                     <span class="checkmark"></span>
-                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesini</a> okudum, onaylıyorum.</span>
+                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Sözleşmesini</a> okudum, onaylıyorum.</span>
                 </label>
             </div>
             <button id="loginButton" class="btn-login" disabled>GİRİŞ YAP</button>
@@ -51,38 +50,17 @@
                 <p id="sidebar-role-text">Yönetim Paneli</p>
             </div>
             <nav class="sidebar-nav">
-                <!-- Yönetici Menüsü -->
                 <div id="admin-menu-items" class="hidden">
-                    <button class="nav-item active" data-target="view-dashboard">
-                        <span class="icon">📊</span> Özet Durum
-                    </button>
-                    <!-- ID eklendi: Gözlemci için gizlenecek -->
-                    <button class="nav-item" id="nav-finance" data-target="view-finance">
-                        <span class="icon">💳</span> Finans & İşlemler
-                    </button>
-                    <button class="nav-item" data-target="view-expenses">
-                        <span class="icon">🧾</span> Gider Yönetimi
-                    </button>
-                    <button class="nav-item" data-target="view-apartments">
-                        <span class="icon">🏢</span> Daire Listesi
-                    </button>
-                    <!-- ID eklendi: Gözlemci için gizlenecek -->
-                    <button class="nav-item" id="nav-settings" data-target="view-settings">
-                        <span class="icon">⚙️</span> Ayarlar
-                    </button>
+                    <button class="nav-item active" data-target="view-dashboard"><span class="icon">📊</span> Özet Durum</button>
+                    <button class="nav-item" id="nav-finance" data-target="view-finance"><span class="icon">💳</span> Finans & İşlemler</button>
+                    <button class="nav-item" data-target="view-expenses"><span class="icon">🧾</span> Gider Yönetimi</button>
+                    <button class="nav-item" data-target="view-apartments"><span class="icon">🏢</span> Daire Listesi</button>
+                    <button class="nav-item" id="nav-settings" data-target="view-settings"><span class="icon">⚙️</span> Ayarlar</button>
                 </div>
-
-                <!-- Kullanıcı Menüsü -->
                 <div id="user-menu-items" class="hidden">
-                    <button class="nav-item active" data-target="user-view-debt">
-                        <span class="icon">💰</span> Bakiyem
-                    </button>
-                    <button class="nav-item" data-target="user-view-profile">
-                        <span class="icon">👤</span> Profilim
-                    </button>
-                    <button class="nav-item" id="nav-user-expenses" data-target="user-view-expenses">
-                        <span class="icon">📉</span> Site Giderleri
-                    </button>
+                    <button class="nav-item active" data-target="user-view-debt"><span class="icon">💰</span> Bakiyem</button>
+                    <button class="nav-item" data-target="user-view-profile"><span class="icon">👤</span> Profilim</button>
+                    <button class="nav-item" id="nav-user-expenses" data-target="user-view-expenses"><span class="icon">📉</span> Site Giderleri</button>
                 </div>
             </nav>
             <div class="sidebar-footer">
@@ -148,6 +126,13 @@
                         <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar (₺)">
                         <button id="addDebtBtn" class="btn btn-primary full-width">Borç Ekle</button>
                         <div id="addDebtMessage" class="message hidden"></div>
+                        
+                        <!-- Gecikme Tazminatı Butonu -->
+                        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee;">
+                            <h5 style="margin-bottom: 10px; color: #555;">Toplu İşlemler</h5>
+                            <button id="addLateFeeBtn" class="btn btn-warning full-width">Bu Ay İçin %5 Gecikme Tazminatı Uygula</button>
+                            <p style="font-size: 0.85em; color: #777; margin-top: 5px;">* Sadece ödenmemiş ana borçlara uygulanır.</p>
+                        </div>
                     </div>
 
                     <div id="contentTabTahsilat" class="tab-content-panel">
@@ -213,18 +198,11 @@
             <div id="view-settings" class="view-section hidden">
                 <h2 class="page-title">Ayarlar</h2>
                 
-                <!-- Şifre İşlemleri -->
                 <div class="card">
                     <h4>Şifre İşlemleri</h4>
                     <div class="form-row">
-                        <div class="col">
-                            <label>Daire Seç:</label>
-                            <select id="sifreDaire" class="form-control"></select>
-                        </div>
-                        <div class="col">
-                            <label>Yeni Şifre:</label>
-                            <input type="password" id="yeniSifre" class="form-control">
-                        </div>
+                        <div class="col"><label>Daire Seç:</label><select id="sifreDaire" class="form-control"></select></div>
+                        <div class="col"><label>Yeni Şifre:</label><input type="password" id="yeniSifre" class="form-control"></div>
                     </div>
                     <button id="savePasswordBtn" class="btn btn-primary full-width mt-2">Daire Şifresini Kaydet</button>
                     
@@ -245,10 +223,8 @@
                     <div id="passwordMessage" class="message hidden"></div>
                 </div>
 
-                <!-- Toplu İşlemler -->
                 <div class="card mt-3">
                     <h4>Toplu Profil İşlemleri</h4>
-                    <p style="font-size:0.9em; color:#666;">Daire sahiplerinin bilgilerini Excel/CSV ile toplu yükleyin.</p>
                     <div class="flex-wrap-gap">
                         <button id="downloadTemplateBtn" class="btn btn-outline">Şablon İndir (.csv)</button>
                         <input type="file" id="profileTemplateInput" accept=".csv" style="display: none;">
@@ -260,37 +236,23 @@
                 </div>
             </div>
 
-            <!-- KULLANICI: BAKİYE (Akordeon Yapısı) -->
+            <!-- KULLANICI EKRANLARI AYNI KALIYOR -->
             <div id="user-view-debt" class="view-section hidden">
                 <h2 class="page-title">Hesap Durumu</h2>
-                <!-- Tıklanabilir Özet Kartı -->
                 <div id="userBalanceCard" class="balance-summary-card collapsible-trigger">
-                    <div class="balance-content">
-                        <span class="summary-title">Güncel Bakiye</span>
-                        <span id="userUnpaidTotal" class="summary-amount">...</span>
-                    </div>
+                    <div class="balance-content"><span class="summary-title">Güncel Bakiye</span><span id="userUnpaidTotal" class="summary-amount">...</span></div>
                     <span class="toggle-icon">▼</span>
                 </div>
-                
-                <!-- Gizlenip/Açılan Detay Alanı -->
                 <div id="userBalanceDetails" class="card mt-3 collapsed-content">
                     <h4 style="border-bottom: 1px solid #eee; padding-bottom:10px; margin-top:0;">Hesap Hareketleri</h4>
                     <div class="table-responsive">
-                        <table class="transaction-table mobile-responsive-table">
-                            <thead><tr><th>Tarih</th><th>Açıklama</th><th>Tutar</th><th>Bakiye</th></tr></thead>
-                            <tbody id="userTransactionList"></tbody>
-                        </table>
+                        <table class="transaction-table mobile-responsive-table"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Tutar</th><th>Bakiye</th></tr></thead><tbody id="userTransactionList"></tbody></table>
                     </div>
                     <div class="totals" id="userDebtTotals"></div>
                 </div>
-                
-                <div class="bank-info mt-3">
-                    <p><strong>Yıldız Konakları Site Yönetimi</strong></p>
-                    <p><strong>IBAN:</strong> TR510001000110981102095001</p>
-                </div>
+                <div class="bank-info mt-3"><p><strong>Yıldız Konakları Site Yönetimi</strong></p><p><strong>IBAN:</strong> TR510001000110981102095001</p></div>
             </div>
 
-            <!-- KULLANICI: PROFİL -->
             <div id="user-view-profile" class="view-section hidden">
                 <h2 class="page-title">Profilim</h2>
                 <div class="card">
@@ -300,54 +262,27 @@
                 </div>
             </div>
 
-            <!-- KULLANICI: GİDERLER -->
             <div id="user-view-expenses" class="view-section hidden">
                 <h2 class="page-title">Site Giderleri</h2>
                 <div id="expenseNotPublishedMessage" class="message hidden">Yayınlanmış gider bulunmamaktadır.</div>
-                <div id="expenseTableContainer">
-                    <div id="userExpenseList" class="expense-list"></div>
-                    <div class="totals" id="userExpenseTotals"></div>
-                </div>
+                <div id="expenseTableContainer"><div id="userExpenseList" class="expense-list"></div><div class="totals" id="userExpenseTotals"></div></div>
             </div>
 
         </main>
     </div>
 
     <!-- MODALS -->
-    <div id="termsModal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h4>Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesi</h4>
-            <div class="terms-box" style="height: 300px; overflow-y: scroll; border:1px solid #eee; padding:10px;">
-                <p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, kişisel verileriniz; veri sorumlusu olarak Yıldız Konakları Site Yönetimi tarafından aşağıda açıklanan kapsamda işlenebilecektir.</p>
-                <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
-                <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrurultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
-                <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
-                <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="registrationModal" class="modal">
-        <div class="modal-content">
-            <h4>Kayıt Tamamla</h4>
-            <p>Hoşgeldiniz <strong id="welcomeUserName"></strong>, lütfen bilgilerinizi tamamlayınız.</p>
-            <input type="tel" id="regTelefon" class="form-control mt-2" placeholder="Telefon">
-            <input type="email" id="regMail" class="form-control mt-2" placeholder="E-posta">
-            <input type="text" id="regAdres" class="form-control mt-2" placeholder="Adres">
-            <button id="saveRegistrationBtn" class="btn btn-primary full-width mt-3">Kaydet</button>
-            <div id="registrationMessage" class="message hidden"></div>
-        </div>
-    </div>
-
+    <div id="termsModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h4>Kullanıcı Sözleşmesi</h4><div class="terms-box"><p>Site kuralları ve KVKK metni...</p></div></div></div>
+    <div id="registrationModal" class="modal"><div class="modal-content"><h4>Kayıt</h4><input type="tel" id="regTelefon" class="form-control" placeholder="Telefon"><input type="email" id="regMail" class="form-control" placeholder="E-posta"><button id="saveRegistrationBtn" class="btn btn-primary full-width mt-3">Kaydet</button></div></div>
+    
     <div id="apartmentDetailModal" class="modal">
         <div class="modal-content">
             <span class="modal-close">&times;</span>
-            <h3 id="apartmentDetailTitle">Daire Detayları</h3>
+            <h3 id="apartmentDetailTitle">Detay</h3>
             <div id="apartmentDetailContent" style="margin-bottom: 20px;"></div>
             <div class="modal-actions" style="display: flex; gap: 10px; justify-content: space-between;">
                 <button id="editApartmentDetailBtn" class="btn btn-warning">Düzenle</button>
-                <button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre (PDF)</button>
+                <button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre</button>
                 <button id="deleteApartmentBtn" class="btn btn-danger">Sil</button>
             </div>
         </div>
