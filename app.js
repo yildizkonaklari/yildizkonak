@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc, query, where, writeBatch, orderBy, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc, query, where, writeBatch, orderBy, enableNetwork, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
@@ -51,7 +51,6 @@ function switchView(id) {
         if (id === 'view-apartments') loadApartmentsListPage();
         if (id === 'user-view-debt') {
             loadUserTransactionLedger(loggedInUsername);
-            // Reset accordion
             document.getElementById('userBalanceDetails').classList.remove('show');
             document.getElementById('userBalanceCard').classList.remove('active');
         }
@@ -61,7 +60,18 @@ function switchView(id) {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     const btn = document.querySelector(`.nav-item[data-target="${id}"]`);
     if(btn) btn.classList.add('active');
-    if(window.innerWidth <= 768) document.querySelector('.sidebar').classList.remove('active');
+    
+    // Close mobile menu logic
+    if(window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('active');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+    }
+}
+
+// TOGGLE SIDEBAR (Mobile)
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('active');
+    document.getElementById('sidebarOverlay').classList.toggle('active');
 }
 
 // LOGIN
@@ -99,7 +109,13 @@ async function setupPanel(type) {
         document.getElementById("admin-menu-items").classList.remove("hidden");
         document.getElementById("display-username").textContent = currentAdminRole === 'full' ? 'Yönetici' : 'Gözlemci';
         document.getElementById("display-role").textContent = 'Admin';
-        if(currentAdminRole === 'viewer') document.querySelectorAll('.admin-only').forEach(e => e.classList.add('hidden'));
+        
+        if(currentAdminRole === 'viewer') {
+            document.querySelectorAll('.admin-only').forEach(e => e.classList.add('hidden'));
+            // Hide Finance and Settings Nav for Viewer
+            document.getElementById('nav-finance').style.display = 'none';
+            document.getElementById('nav-settings').style.display = 'none';
+        }
         
         fillFlatSelects();
         updateExpenseDateDisplay();
@@ -123,7 +139,6 @@ async function setupPanel(type) {
     }
 }
 
-// LOGIC
 function fillFlatSelects() {
     const s = ["islemDaireSelect", "borcKime", "sifreDaire"];
     s.forEach(id => {
@@ -189,10 +204,13 @@ async function loadAdminTransactionLedger() {
         const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
         const btns = currentAdminRole === 'full' ? `<button class="btn btn-danger btn-sm" onclick="delTrans('${daire}','${doc.id}')">Sil</button>` : '';
         
+        // Add data-label for mobile view
         list.innerHTML += `<tr>
-            <td>${formatDate(t.tarih)}</td><td>${t.aciklama}</td>
-            <td style="${style}">${formatCurrency(t.tutar)}</td>
-            <td>${formatCurrency(bal)}</td><td class="admin-only">${btns}</td>
+            <td data-label="Tarih">${formatDate(t.tarih)}</td>
+            <td data-label="Açıklama">${t.aciklama}</td>
+            <td data-label="Tutar" style="${style}">${formatCurrency(t.tutar)}</td>
+            <td data-label="Bakiye">${formatCurrency(bal)}</td>
+            <td class="admin-only" data-label="İşlem">${btns}</td>
         </tr>`;
     });
     document.getElementById("bakiyeToplam").textContent = `Bakiye: ${formatCurrency(bal)}`;
@@ -312,7 +330,7 @@ async function loadUserTransactionLedger(u) {
         const t = doc.data();
         if(t.tarih > todayStr) return;
         bal += Number(t.tutar);
-        // data-label attributes are added for mobile CSS card view support
+        // data-label for mobile view
         list.innerHTML += `<tr>
             <td data-label="Tarih">${formatDate(t.tarih)}</td>
             <td data-label="Açıklama">${t.aciklama}</td>
@@ -324,14 +342,9 @@ async function loadUserTransactionLedger(u) {
     const totEl = document.getElementById("userDebtTotals");
     totEl.textContent = `Güncel: ${formatCurrency(bal)}`;
     
-    // Set color based on balance
-    if(bal < 0) {
-        document.getElementById("userUnpaidTotal").style.color = '#2b9348'; // Green for credit
-    } else if (bal > 0) {
-        document.getElementById("userUnpaidTotal").style.color = '#d90429'; // Red for debt
-    } else {
-        document.getElementById("userUnpaidTotal").style.color = '#333';
-    }
+    if(bal < 0) document.getElementById("userUnpaidTotal").style.color = '#2b9348';
+    else if (bal > 0) document.getElementById("userUnpaidTotal").style.color = '#d90429';
+    else document.getElementById("userUnpaidTotal").style.color = '#333';
 }
 
 async function loadUserProfile() {
@@ -384,6 +397,58 @@ async function checkProfileAndExpensesVisibility() {
     else if(isPub) document.getElementById('nav-user-expenses').classList.remove('hidden');
 }
 
+// BULK ACTIONS
+document.getElementById('downloadTemplateBtn').onclick = () => {
+    let csv = "data:text/csv;charset=utf-8,\uFEFFDaire,Ad,Soyad,Telefon,Mail\n";
+    daireler.forEach(d => csv += `${d},,,,\n`);
+    const link = document.createElement("a");
+    link.href = encodeURI(csv); link.download = "sablon.csv"; link.click();
+};
+
+document.getElementById('uploadTemplateBtn').onclick = () => document.getElementById('profileTemplateInput').click();
+document.getElementById('profileTemplateInput').onchange = (e) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = async (ev) => {
+        const rows = ev.target.result.split('\n').slice(1);
+        const b = writeBatch(db);
+        rows.forEach(row => {
+            const c = row.split(',');
+            if(c[0] && daireler.includes(c[0].trim().toUpperCase())) {
+                b.set(doc(db,'apartments',c[0].trim().toUpperCase()), {adi:c[1], soyadi:c[2], telefon:c[3], mail:c[4]}, {merge:true});
+            }
+        });
+        await b.commit(); showMessage("settingsMessage", "Yüklendi.");
+    };
+    r.readAsText(f);
+};
+
+document.getElementById('downloadAllProfilesCsvBtn').onclick = async () => {
+    let csv = "data:text/csv;charset=utf-8,\uFEFFDaire;Ad Soyad;Telefon;Mail;Sifre\n";
+    for(const d of daireler) {
+        const docSnap = await getDoc(doc(db,'apartments',d));
+        const data = docSnap.data() || {};
+        csv += `${d};${data.adi||''} ${data.soyadi||''};${data.telefon||''};${data.mail||''};${data.password||''}\n`;
+    }
+    const link = document.createElement("a");
+    link.href = encodeURI(csv); link.download = "tum_profiller.csv"; link.click();
+};
+
+document.getElementById('deleteAllTransactionsBtn').onclick = async () => {
+    if(confirm("DİKKAT: Tüm borç, tahsilat ve gider kayıtları silinecek! Onaylıyor musunuz?")) {
+        const b = writeBatch(db);
+        for(const d of daireler) {
+            const s = await getDocs(collection(db,'apartments',d,'transactions'));
+            s.forEach(x => b.delete(x.ref));
+        }
+        const es = await getDocs(collection(db,'expenses'));
+        es.forEach(x => b.delete(x.ref));
+        await b.commit();
+        showMessage("settingsMessage", "Sıfırlandı.");
+    }
+};
+
 // ACTIONS
 document.getElementById('addDebtBtn').addEventListener('click', async () => {
     const d = document.getElementById("borcKime").value, t = document.getElementById("borcTarih").value, a = document.getElementById("borcAciklama").value, m = Number(document.getElementById("borcTutar").value);
@@ -413,7 +478,9 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async () => 
 document.getElementById('loginButton').addEventListener('click', login);
 document.getElementById('loginTerms').addEventListener('change', (e) => document.getElementById('loginButton').disabled = !e.target.checked);
 document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
-document.getElementById('sidebarToggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', (e) => switchView(e.currentTarget.dataset.target)));
 document.getElementById('btnTabBorc').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabBorc').classList.add('active'); });
 document.getElementById('btnTabTahsilat').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabTahsilat').classList.add('active'); });
@@ -427,6 +494,25 @@ document.getElementById('refreshDataBtn').addEventListener('click', updateAdminD
 document.querySelectorAll('.modal-close').forEach(x => x.onclick = function() { this.closest('.modal').style.display = 'none'; });
 document.getElementById('openTermsModal').onclick = (e) => { e.preventDefault(); document.getElementById('termsModal').style.display = 'block'; };
 
+document.getElementById('savePasswordBtn').onclick = async () => {
+    const d = document.getElementById('sifreDaire').value, p = document.getElementById('yeniSifre').value;
+    if(p.length<3) return showMessage('passwordMessage','Şifre kısa',true);
+    await setDoc(doc(db,'apartments',d), {password:p}, {merge:true});
+    showMessage('passwordMessage', 'Güncellendi');
+};
+document.getElementById('saveAdminPasswordBtn').onclick = async () => {
+    const p = document.getElementById('adminYeniSifre').value;
+    if(p.length<5) return showMessage('passwordMessage','Şifre kısa',true);
+    await setDoc(doc(db,'admin','credentials'), {password:p}, {merge:true});
+    showMessage('passwordMessage', 'Admin şifresi güncellendi');
+};
+document.getElementById('saveViewerAdminPasswordBtn').onclick = async () => {
+    const p = document.getElementById('viewerAdminYeniSifre').value;
+    if(p.length<5) return showMessage('passwordMessage','Şifre kısa',true);
+    await setDoc(doc(db,'admin','viewerCredentials'), {password:p}, {merge:true});
+    showMessage('passwordMessage', 'Gözlemci şifresi güncellendi');
+};
+
 // Balance Accordion Listener
 document.getElementById('userBalanceCard').addEventListener('click', function() {
     this.classList.toggle('active');
@@ -438,14 +524,74 @@ window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(d
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
 window.openAptDetail = async (id) => {
     const d = allApartmentsData.find(x => x.id === id);
-    document.getElementById('apartmentDetailContent').innerHTML = `<p>${d.adi||''} ${d.soyadi||''}</p><p>Bakiye: ${formatCurrency(d.balance)}</p>`;
+    const lastLogin = d.lastLogin ? new Date(d.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
+    document.getElementById('apartmentDetailContent').innerHTML = `
+        <p><strong>Ad Soyad:</strong> ${d.adi||''} ${d.soyadi||''}</p>
+        <p><strong>E-posta:</strong> ${d.mail || 'Yok'}</p>
+        <p><strong>Telefon:</strong> ${d.telefon || 'Yok'}</p>
+        <p><strong>Adres:</strong> ${d.adres || 'Yok'}</p>
+        <p><strong>Son Giriş:</strong> ${lastLogin}</p>
+        <p><strong>Bakiye:</strong> ${formatCurrency(d.balance)}</p>`;
+    
+    // Bind buttons dynamically
+    document.getElementById('editApartmentDetailBtn').onclick = () => window.editApt(id);
+    document.getElementById('deleteApartmentBtn').onclick = () => window.delApt(id);
+    document.getElementById('downloadApartmentStatementBtn').onclick = () => window.downloadAccountStatementPdf(id);
+
     document.getElementById('apartmentDetailModal').style.display = 'block';
 };
+
+window.editApt = async (id) => {
+    const d = allApartmentsData.find(x => x.id === id);
+    const newName = prompt("Ad:", d.adi || ""); if(newName===null) return;
+    const newSurname = prompt("Soyad:", d.soyadi || "");
+    const newPhone = prompt("Telefon:", d.telefon || "");
+    const newMail = prompt("Mail:", d.mail || "");
+    
+    await setDoc(doc(db, 'apartments', id), { adi: newName, soyadi: newSurname, telefon: newPhone, mail: newMail }, { merge: true });
+    alert("Güncellendi");
+    document.getElementById('apartmentDetailModal').style.display = 'none';
+    loadApartmentsListPage();
+};
+
+window.delApt = async (id) => {
+    if(confirm(`DİKKAT: ${id} dairesinin tüm bilgileri ve borç geçmişi silinecek!`)) {
+        const b = writeBatch(db);
+        const s = await getDocs(collection(db, 'apartments', id, 'transactions'));
+        s.forEach(x => b.delete(x.ref));
+        b.update(doc(db, 'apartments', id), { adi: deleteField(), soyadi: deleteField(), telefon: deleteField(), mail: deleteField(), adres: deleteField(), profileCompleted: deleteField() });
+        await b.commit();
+        alert("Silindi");
+        document.getElementById('apartmentDetailModal').style.display = 'none';
+        loadApartmentsListPage();
+    }
+};
+
+// PDF Export (Global Scope for access from Modal)
+window.downloadAccountStatementPdf = async function(daireId) {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    const q = query(collection(db, 'apartments', daireId, 'transactions'), orderBy("tarih", "asc"));
+    const snap = await getDocs(q);
+    
+    let rows = [], bal = 0;
+    snap.forEach(d => {
+        const t = d.data();
+        if(t.tarih > todayStr) return;
+        bal += Number(t.tutar);
+        rows.push([formatDate(t.tarih), t.aciklama, formatCurrency(t.tutar), formatCurrency(bal)]);
+    });
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`${daireId} Hesap Ekstresi - ${new Date().toLocaleDateString('tr-TR')}`, 14, 20);
+    pdf.autoTable({ head: [['Tarih', 'Açıklama', 'Tutar', 'Bakiye']], body: rows, startY: 30 });
+    pdf.save(`${daireId}_Ekstre.pdf`);
+}
 
 // INIT
 async function init() {
     try {
-        await enableNetwork(db); // THIS WAS THE MISSING FUNCTION CAUSING THE ERROR
+        await enableNetwork(db); 
         const a = await getDoc(doc(db, 'admin', 'credentials'));
         if(a.exists()) adminCredentials = a.data();
         else { adminCredentials = {username:'admin', password:'123'}; await setDoc(doc(db, 'admin', 'credentials'), adminCredentials); }
@@ -453,7 +599,6 @@ async function init() {
         if(v.exists()) viewerAdminCredentials = v.data();
         else { viewerAdminCredentials = {username:'YONETIM', password:'123'}; await setDoc(doc(db, 'admin', 'viewerCredentials'), viewerAdminCredentials); }
         
-        // Ensure apartments have passwords
         const b = writeBatch(db); let c = 0;
         for(const d of daireler) {
             const r = doc(db, 'apartments', d);
