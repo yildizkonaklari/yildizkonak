@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc, query, where, writeBatch, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc, addDoc, deleteDoc, updateDoc, getDoc, query, where, writeBatch, orderBy, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyC7hS2P3m2xVfHrl0ONsMrVYv6uY-R-xNU",
@@ -32,8 +32,8 @@ function showMessage(id, msg, isError = false) {
     if (!el) return;
     el.textContent = msg;
     el.classList.remove('hidden');
-    el.style.color = isError ? 'red' : 'green';
-    setTimeout(() => el.classList.add('hidden'), 3000);
+    el.style.color = isError ? '#d90429' : '#2b9348';
+    setTimeout(() => el.classList.add('hidden'), 4000);
 }
 function formatCurrency(n) { return `₺${Number(n).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`; }
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('tr-TR') : '-'; }
@@ -49,7 +49,12 @@ function switchView(id) {
         if (id === 'view-finance') loadAdminTransactionLedger();
         if (id === 'view-expenses') loadAdminExpensesTable();
         if (id === 'view-apartments') loadApartmentsListPage();
-        if (id === 'user-view-debt') loadUserTransactionLedger(loggedInUsername);
+        if (id === 'user-view-debt') {
+            loadUserTransactionLedger(loggedInUsername);
+            // Reset accordion
+            document.getElementById('userBalanceDetails').classList.remove('show');
+            document.getElementById('userBalanceCard').classList.remove('active');
+        }
         if (id === 'user-view-profile') loadUserProfile();
         if (id === 'user-view-expenses') loadUserExpensesTable();
     }
@@ -181,7 +186,7 @@ async function loadAdminTransactionLedger() {
         const t = doc.data();
         if(t.tarih > todayStr) return;
         bal += Number(t.tutar);
-        const style = t.tur === 'borc' ? 'color:red' : 'color:green';
+        const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
         const btns = currentAdminRole === 'full' ? `<button class="btn btn-danger btn-sm" onclick="delTrans('${daire}','${doc.id}')">Sil</button>` : '';
         
         list.innerHTML += `<tr>
@@ -307,11 +312,26 @@ async function loadUserTransactionLedger(u) {
         const t = doc.data();
         if(t.tarih > todayStr) return;
         bal += Number(t.tutar);
-        const style = t.tur === 'borc' ? 'color:red' : 'color:green';
-        list.innerHTML += `<tr><td>${formatDate(t.tarih)}</td><td>${t.aciklama}</td><td style="${style}">${formatCurrency(t.tutar)}</td><td>${formatCurrency(bal)}</td></tr>`;
+        // data-label attributes are added for mobile CSS card view support
+        list.innerHTML += `<tr>
+            <td data-label="Tarih">${formatDate(t.tarih)}</td>
+            <td data-label="Açıklama">${t.aciklama}</td>
+            <td data-label="Tutar" style="${t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348'}">${formatCurrency(t.tutar)}</td>
+            <td data-label="Bakiye">${formatCurrency(bal)}</td>
+        </tr>`;
     });
     document.getElementById("userUnpaidTotal").textContent = formatCurrency(bal);
-    document.getElementById("userDebtTotals").textContent = `Güncel: ${formatCurrency(bal)}`;
+    const totEl = document.getElementById("userDebtTotals");
+    totEl.textContent = `Güncel: ${formatCurrency(bal)}`;
+    
+    // Set color based on balance
+    if(bal < 0) {
+        document.getElementById("userUnpaidTotal").style.color = '#2b9348'; // Green for credit
+    } else if (bal > 0) {
+        document.getElementById("userUnpaidTotal").style.color = '#d90429'; // Red for debt
+    } else {
+        document.getElementById("userUnpaidTotal").style.color = '#333';
+    }
 }
 
 async function loadUserProfile() {
@@ -407,6 +427,12 @@ document.getElementById('refreshDataBtn').addEventListener('click', updateAdminD
 document.querySelectorAll('.modal-close').forEach(x => x.onclick = function() { this.closest('.modal').style.display = 'none'; });
 document.getElementById('openTermsModal').onclick = (e) => { e.preventDefault(); document.getElementById('termsModal').style.display = 'block'; };
 
+// Balance Accordion Listener
+document.getElementById('userBalanceCard').addEventListener('click', function() {
+    this.classList.toggle('active');
+    document.getElementById('userBalanceDetails').classList.toggle('show');
+});
+
 // WINDOW EXPORTS
 window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'apartments', d, 'transactions', id)); loadAdminTransactionLedger(); } };
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
@@ -418,19 +444,25 @@ window.openAptDetail = async (id) => {
 
 // INIT
 async function init() {
-    await enableNetwork(db);
-    const a = await getDoc(doc(db, 'admin', 'credentials'));
-    if(a.exists()) adminCredentials = a.data();
-    else { adminCredentials = {username:'admin', password:'123'}; await setDoc(doc(db, 'admin', 'credentials'), adminCredentials); }
-    const v = await getDoc(doc(db, 'admin', 'viewerCredentials'));
-    if(v.exists()) viewerAdminCredentials = v.data();
-    else { viewerAdminCredentials = {username:'YONETIM', password:'123'}; await setDoc(doc(db, 'admin', 'viewerCredentials'), viewerAdminCredentials); }
-    const b = writeBatch(db); let c = 0;
-    for(const d of daireler) {
-        const r = doc(db, 'apartments', d);
-        const s = await getDoc(r);
-        if(!s.exists()) { b.set(r, {password: generateRandomPassword()}, {merge:true}); c++; }
+    try {
+        await enableNetwork(db); // THIS WAS THE MISSING FUNCTION CAUSING THE ERROR
+        const a = await getDoc(doc(db, 'admin', 'credentials'));
+        if(a.exists()) adminCredentials = a.data();
+        else { adminCredentials = {username:'admin', password:'123'}; await setDoc(doc(db, 'admin', 'credentials'), adminCredentials); }
+        const v = await getDoc(doc(db, 'admin', 'viewerCredentials'));
+        if(v.exists()) viewerAdminCredentials = v.data();
+        else { viewerAdminCredentials = {username:'YONETIM', password:'123'}; await setDoc(doc(db, 'admin', 'viewerCredentials'), viewerAdminCredentials); }
+        
+        // Ensure apartments have passwords
+        const b = writeBatch(db); let c = 0;
+        for(const d of daireler) {
+            const r = doc(db, 'apartments', d);
+            const s = await getDoc(r);
+            if(!s.exists()) { b.set(r, {password: generateRandomPassword()}, {merge:true}); c++; }
+        }
+        if(c>0) await b.commit();
+    } catch (e) {
+        console.error("Init Error:", e);
     }
-    if(c>0) await b.commit();
 }
 init();
