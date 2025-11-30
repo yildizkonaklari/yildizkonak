@@ -82,34 +82,23 @@
             <div id="view-dashboard" class="view-section active">
                 <h2 class="page-title">Genel Bakış</h2>
                 <div class="dashboard-grid">
-                    <!-- ... existing dashboard cards ... -->
+                    <div class="dashboard-card card-blue">
+                        <span class="title">Kasa Bakiyesi</span>
+                        <span id="dashboardTotalBalance" class="value">...</span>
+                    </div>
+                    <div class="dashboard-card card-green">
+                        <span class="title">Bu Ayki Gelir</span>
+                        <span id="dashboardMonthlyIncome" class="value">...</span>
+                    </div>
+                    <div class="dashboard-card card-red">
+                        <span class="title">Bu Ayki Gider</span>
+                        <span id="dashboardMonthlyExpense" class="value">...</span>
+                    </div>
                     <div class="dashboard-card card-orange">
                         <span class="title">Toplam Alacak</span>
                         <span id="dashboardUnpaidCount" class="value">...</span>
                     </div>
                 </div>
-                
-                <!-- YENİ EKLENEN BÖLÜM: SON İŞLEMLER -->
-                <div class="recent-transactions-container">
-                    <h3 style="margin-top:0; margin-bottom:15px; color:var(--primary); font-size:1.2em;">Son İşlemler (Hareket Akışı)</h3>
-                    <div class="table-responsive">
-                        <table class="recent-transactions-table">
-                            <thead>
-                                <tr>
-                                    <th>Daire</th>
-                                    <th>İşlem Türü</th>
-                                    <th>Açıklama</th>
-                                    <th>Tarih</th>
-                                    <th style="text-align:right">Tutar</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dashboardRecentTransactions">
-                                <tr><td colspan="5" style="text-align:center; color:#999;">Yükleniyor...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <div style="text-align: right; margin-top:10px;">
                     <button id="refreshDataBtn" class="btn btn-secondary btn-sm">⟳ Verileri Yenile</button>
                 </div>
