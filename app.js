@@ -61,12 +61,14 @@ function switchView(id) {
     const btn = document.querySelector(`.nav-item[data-target="${id}"]`);
     if(btn) btn.classList.add('active');
     
+    // Close mobile menu logic
     if(window.innerWidth <= 768) {
         document.querySelector('.sidebar').classList.remove('active');
         document.getElementById('sidebarOverlay').classList.remove('active');
     }
 }
 
+// TOGGLE SIDEBAR (Mobile)
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('active');
     document.getElementById('sidebarOverlay').classList.toggle('active');
@@ -151,8 +153,6 @@ async function updateAdminDashboard() {
     const m = aylar[new Date().getMonth()];
     const y = new Date().getFullYear();
     let income = 0, expense = 0, monthInc = 0, monthExp = 0, debt = 0;
-    
-    // Son işlemler listesi
     let recentTxns = [];
 
     for (const d of daireler) {
@@ -167,7 +167,6 @@ async function updateAdminDashboard() {
                     if(new Date(t.tarih).getMonth() === new Date().getMonth()) monthInc += Math.abs(Number(t.tutar));
                 }
             }
-            // Add to recent list
             const sortDate = t.timestamp ? t.timestamp.toDate() : new Date(t.tarih);
             recentTxns.push({ daire: d, ...t, sortDate: sortDate });
         });
@@ -312,8 +311,10 @@ async function downloadMonthlyExpensesPdf() {
     const y = currentExpenseDate.getFullYear();
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    
     const q = query(collection(db, 'expenses'), where("tarih_ay", "==", m), where("tarih_yil", "==", Number(y)));
     const s = await getDocs(q);
+    
     if(s.empty) return showMessage("expenseMessage", "Veri yok.", true);
     
     let rows = [], total = 0;
@@ -322,6 +323,7 @@ async function downloadMonthlyExpensesPdf() {
         total += Number(e.tutar);
         rows.push([formatDate(e.tarih), e.harcamaAdi, formatCurrency(e.tutar)]);
     });
+    
     doc.setFont("helvetica", "normal");
     doc.text(`${m} ${y} Gider Raporu`, 14, 20);
     doc.autoTable({ head: [['Tarih', 'Açıklama', 'Tutar']], body: rows, startY: 30 });
@@ -345,7 +347,7 @@ async function loadApartmentsListPage() {
         if (d.balance > 0) colorClass = 'text-danger'; 
         if (d.balance < 0) colorClass = 'text-success'; 
         return `<div class="apartment-list-item" onclick="openAptDetail('${d.id}')">
-            <div class="apartment-info"><span class="daire-no">${d.id}</span><span>${d.adi || ''} ${d.soyadi || ''}</span></div>
+            <div class="apartment-info"><span class="daire-no">${d.id}</span><span>${d.adi || 'Bilgi Yok'} ${d.soyadi || ''}</span></div>
             <div class="apartment-balance"><span class="balance-value ${colorClass}">${formatCurrency(d.balance)}</span></div>
         </div>`;
     }).join('');
@@ -504,7 +506,6 @@ document.getElementById('refreshDataBtn').addEventListener('click', updateAdminD
 document.querySelectorAll('.modal-close').forEach(x => x.onclick = function() { this.closest('.modal').style.display = 'none'; });
 document.getElementById('openTermsModal').onclick = (e) => { e.preventDefault(); document.getElementById('termsModal').style.display = 'block'; };
 
-// *** PDF FIXED HERE ***
 document.getElementById('downloadAccountStatementBtn').addEventListener('click', () => {
     const daireId = document.getElementById('islemDaireSelect').value;
     if(daireId) window.downloadAccountStatementPdf(daireId);
@@ -538,9 +539,23 @@ document.getElementById('userBalanceCard').addEventListener('click', function() 
 // WINDOW EXPORTS
 window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'apartments', d, 'transactions', id)); loadAdminTransactionLedger(); } };
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
+
+// *** GÜNCELLENMİŞ DAİRE DETAY FONKSİYONU ***
 window.openAptDetail = async (id) => {
     const d = allApartmentsData.find(x => x.id === id);
-    document.getElementById('apartmentDetailContent').innerHTML = `<p>${d.adi||''} ${d.soyadi||''}</p><p>Bakiye: ${formatCurrency(d.balance)}</p>`;
+    const lastLoginDate = d.lastLogin ? new Date(d.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
+    
+    let html = `
+        <div class="detail-row"><span class="label">Daire:</span> <span class="value">${d.id}</span></div>
+        <div class="detail-row"><span class="label">Ad Soyad:</span> <span class="value">${d.adi || '-'} ${d.soyadi || '-'}</span></div>
+        <div class="detail-row"><span class="label">Telefon:</span> <span class="value">${d.telefon || '-'}</span></div>
+        <div class="detail-row"><span class="label">E-posta:</span> <span class="value">${d.mail || '-'}</span></div>
+        <div class="detail-row"><span class="label">Adres:</span> <span class="value">${d.adres || '-'}</span></div>
+        <div class="detail-row"><span class="label">Son Giriş:</span> <span class="value">${lastLoginDate}</span></div>
+        <div class="detail-row"><span class="label">Güncel Bakiye:</span> <span class="value ${d.balance > 0 ? 'text-danger' : 'text-success'}" style="font-weight:bold;">${formatCurrency(d.balance)}</span></div>
+    `;
+    
+    document.getElementById('apartmentDetailContent').innerHTML = html;
     document.getElementById('apartmentDetailModal').style.display = 'block';
     
     // Bind modal buttons
