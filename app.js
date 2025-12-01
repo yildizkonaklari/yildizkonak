@@ -61,14 +61,12 @@ function switchView(id) {
     const btn = document.querySelector(`.nav-item[data-target="${id}"]`);
     if(btn) btn.classList.add('active');
     
-    // Close mobile menu logic
     if(window.innerWidth <= 768) {
         document.querySelector('.sidebar').classList.remove('active');
         document.getElementById('sidebarOverlay').classList.remove('active');
     }
 }
 
-// TOGGLE SIDEBAR (Mobile)
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('active');
     document.getElementById('sidebarOverlay').classList.toggle('active');
@@ -153,6 +151,7 @@ async function updateAdminDashboard() {
     const m = aylar[new Date().getMonth()];
     const y = new Date().getFullYear();
     let income = 0, expense = 0, monthInc = 0, monthExp = 0, debt = 0;
+    
     let recentTxns = [];
 
     for (const d of daireler) {
@@ -446,11 +445,15 @@ document.getElementById('addTahsilatBtn').addEventListener('click', async () => 
     showMessage("addTahsilatMessage", "Eklendi."); loadAdminTransactionLedger();
 });
 
-// LATE FEE LOGIC
+// LATE FEE LOGIC (GÜNCELLENDİ: Tarih kontrolü eklendi)
 document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
     const now = new Date();
     const feeName = `${aylar[now.getMonth()]} ${now.getFullYear()} Gecikme Tazminatı`;
-    if(!confirm(`DİKKAT: Ana borçlar taranıp %5 gecikme tazminatı eklenecek.\n\nOnaylıyor musunuz?`)) return;
+    
+    // GÜNCELLEME BURADA: Ayın ilk günü (örn: '2025-12-01')
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+
+    if(!confirm(`DİKKAT: ${currentMonthStart} tarihinden ÖNCEKİ ana borçlar taranıp %5 gecikme tazminatı eklenecek.\n(Bu ayın aidatları etkilenmeyecek)\n\nOnaylıyor musunuz?`)) return;
 
     const b = writeBatch(db);
     let count = 0;
@@ -462,12 +465,23 @@ document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
         s.forEach(snap => {
             const t = snap.data();
             if(t.aciklama === feeName) applied = true;
-            if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) pDebt += Number(t.tutar);
-            else if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
+            
+            // Tarih Kontrolü: Sadece bu ayın başından önceki borçları topla
+            if (t.tarih < currentMonthStart) {
+                if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) {
+                    pDebt += Number(t.tutar);
+                }
+            }
+            
+            // Tahsilatların tarihine bakılmaz, toplam ödeme düşülür
+            if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
         });
 
         if(applied) continue;
+        
+        // Kalan Ana Borç = (Eski Ana Borçlar Toplamı) - (Tüm Tahsilatlar)
         const rem = pDebt - tPay;
+        
         if(rem > 0) {
             const fee = parseFloat((rem * 0.05).toFixed(2));
             b.set(doc(collection(db, 'apartments', d, 'transactions')), { tarih:todayStr, tur:'borc', aciklama:feeName, tutar:fee, timestamp:new Date() });
@@ -539,23 +553,9 @@ document.getElementById('userBalanceCard').addEventListener('click', function() 
 // WINDOW EXPORTS
 window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'apartments', d, 'transactions', id)); loadAdminTransactionLedger(); } };
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
-
-// *** GÜNCELLENMİŞ DAİRE DETAY FONKSİYONU ***
 window.openAptDetail = async (id) => {
     const d = allApartmentsData.find(x => x.id === id);
-    const lastLoginDate = d.lastLogin ? new Date(d.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
-    
-    let html = `
-        <div class="detail-row"><span class="label">Daire:</span> <span class="value">${d.id}</span></div>
-        <div class="detail-row"><span class="label">Ad Soyad:</span> <span class="value">${d.adi || '-'} ${d.soyadi || '-'}</span></div>
-        <div class="detail-row"><span class="label">Telefon:</span> <span class="value">${d.telefon || '-'}</span></div>
-        <div class="detail-row"><span class="label">E-posta:</span> <span class="value">${d.mail || '-'}</span></div>
-        <div class="detail-row"><span class="label">Adres:</span> <span class="value">${d.adres || '-'}</span></div>
-        <div class="detail-row"><span class="label">Son Giriş:</span> <span class="value">${lastLoginDate}</span></div>
-        <div class="detail-row"><span class="label">Güncel Bakiye:</span> <span class="value ${d.balance > 0 ? 'text-danger' : 'text-success'}" style="font-weight:bold;">${formatCurrency(d.balance)}</span></div>
-    `;
-    
-    document.getElementById('apartmentDetailContent').innerHTML = html;
+    document.getElementById('apartmentDetailContent').innerHTML = `<p>${d.adi||''} ${d.soyadi||''}</p><p>Bakiye: ${formatCurrency(d.balance)}</p>`;
     document.getElementById('apartmentDetailModal').style.display = 'block';
     
     // Bind modal buttons
