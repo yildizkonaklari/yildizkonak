@@ -13,6 +13,9 @@
 </head>
 <body>
 
+    <!-- MOBİL ÜST BANNER (Sadece Mobilde Görünür) -->
+    <div class="mobile-site-banner">Yıldız Konakları Sitesi</div>
+
     <!-- GİRİŞ EKRANI -->
     <div id="login-container" class="login-wrapper">
         <div class="login-box">
@@ -72,7 +75,11 @@
         <!-- ANA İÇERİK -->
         <main class="main-content">
             <header class="topbar">
-                <button id="sidebarToggle" class="sidebar-toggle">☰</button>
+                <div style="display:flex; align-items:center;">
+                    <button id="sidebarToggle" class="sidebar-toggle">☰</button>
+                    <!-- Masaüstü Başlık (Mobilde gizli) -->
+                    <h4 class="desktop-header-title" style="margin:0; margin-left:15px; color:var(--primary);">Yönetim Paneli</h4>
+                </div>
                 <div class="user-info">
                     <span id="display-username">Kullanıcı</span>
                     <span id="display-role" class="badge"></span>
@@ -117,8 +124,8 @@
 
                     <div id="contentTabBorc" class="tab-content-panel active">
                         <div class="form-row"><div class="col"><label>Kime:</label><select id="borcKime" class="form-control"></select></div><div class="col"><label>Tarih:</label><input type="date" id="borcTarih" class="form-control"></div></div>
-                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama (Örn: Aidat)">
-                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar (₺)">
+                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama">
+                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar">
                         <button id="addDebtBtn" class="btn btn-primary full-width">Borç Ekle</button>
                         <div id="addDebtMessage" class="message hidden"></div>
                         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee;">
@@ -130,8 +137,8 @@
                     <div id="contentTabTahsilat" class="tab-content-panel">
                         <p class="info-text">(Yukarıda seçilen daireye işlenir)</p>
                         <input type="date" id="tahsilatTarih" class="form-control mb-2">
-                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar (₺)">
-                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama (Örn: Havale)">
+                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar">
+                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama">
                         <button id="addTahsilatBtn" class="btn btn-success full-width">Tahsilat Ekle</button>
                         <div id="addTahsilatMessage" class="message hidden"></div>
                     </div>
@@ -203,18 +210,28 @@
     </div>
 
     <!-- MODALS -->
-    <div id="termsModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h4>Kullanıcı Sözleşmesi</h4><div class="terms-box"><p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca...</p><p>Gizlilik Sözleşmesi...</p></div></div></div>
+    <div id="termsModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h4>Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesi</h4>
+            <div class="terms-box" style="height: 300px; overflow-y: scroll; border:1px solid #eee; padding:10px; font-size:0.9em; line-height:1.5;">
+                <p><strong>1. Amaç ve Kapsam</strong><br>Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) kapsamında, Yıldız Konakları Site Yönetimi tarafından işlenen kişisel verileriniz hakkında sizi aydınlatmak amacıyla hazırlanmıştır.</p>
+                <p><strong>2. İşlenen Kişisel Veriler</strong><br>Site yönetimi faaliyetleri kapsamında; Ad-Soyad, Telefon Numarası, E-posta Adresi, Daire Numarası ve Araç Plaka bilgileriniz işlenmektedir.</p>
+                <p><strong>3. Veri İşleme Amaçları</strong><br>Kişisel verileriniz; aidat takibi, site içi iletişimin sağlanması, güvenlik ve yasal yükümlülüklerin yerine getirilmesi amacıyla işlenmektedir.</p>
+                <p><strong>4. Veri Aktarımı</strong><br>Kişisel verileriniz, yasal zorunluluklar haricinde üçüncü kişilerle paylaşılmamaktadır. Ancak hukuki uyuşmazlık durumunda yetkili mercilere aktarılabilir.</p>
+                <p><strong>5. Haklarınız</strong><br>KVKK’nın 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, düzeltme ve silme talep etme hakkına sahipsiniz.</p>
+                <br>
+                <p><strong>GİZLİLİK VE KULLANIM SÖZLEŞMESİ</strong><br>Bu sistemi kullanarak, site yönetimi tarafından belirlenen kurallara uymayı ve kişisel verilerinizin yukarıda belirtilen amaçlarla işlenmesini kabul etmiş olursunuz.</p>
+            </div>
+        </div>
+    </div>
     
-    <!-- GÜNCELLENMİŞ KAYIT PENCERESİ -->
     <div id="registrationModal" class="modal" style="z-index: 2000;">
         <div class="modal-content">
             <h4 style="color:var(--primary); margin-top:0; margin-bottom:15px;">Site Kaydı Oluştur</h4>
-            
-            <!-- Mesajın Görüleceği Alan -->
             <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #014f86;">
                 <p id="welcomeMessageText" style="margin:0; color:#014f86; font-size:0.95em; line-height:1.5;"></p>
             </div>
-
             <input type="tel" id="regTelefon" class="form-control mb-2" placeholder="Telefon Numaranız">
             <input type="email" id="regMail" class="form-control mb-2" placeholder="E-posta Adresiniz">
             <input type="text" id="regAdres" class="form-control mb-2" placeholder="İkametgah Adresiniz">
