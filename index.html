@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <link rel="stylesheet" href="style.css">
+    
     <!-- PDF ve Tablo Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
@@ -116,8 +117,8 @@
 
                     <div id="contentTabBorc" class="tab-content-panel active">
                         <div class="form-row"><div class="col"><label>Kime:</label><select id="borcKime" class="form-control"></select></div><div class="col"><label>Tarih:</label><input type="date" id="borcTarih" class="form-control"></div></div>
-                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama">
-                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar">
+                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama (Örn: Aidat)">
+                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar (₺)">
                         <button id="addDebtBtn" class="btn btn-primary full-width">Borç Ekle</button>
                         <div id="addDebtMessage" class="message hidden"></div>
                         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee;">
@@ -129,8 +130,8 @@
                     <div id="contentTabTahsilat" class="tab-content-panel">
                         <p class="info-text">(Yukarıda seçilen daireye işlenir)</p>
                         <input type="date" id="tahsilatTarih" class="form-control mb-2">
-                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar">
-                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama">
+                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar (₺)">
+                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama (Örn: Havale)">
                         <button id="addTahsilatBtn" class="btn btn-success full-width">Tahsilat Ekle</button>
                         <div id="addTahsilatMessage" class="message hidden"></div>
                     </div>
@@ -202,22 +203,26 @@
     </div>
 
     <!-- MODALS -->
-    <!-- SÖZLEŞME METNİ GÜNCELLENDİ -->
-    <div id="termsModal" class="modal">
+    <div id="termsModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h4>Kullanıcı Sözleşmesi</h4><div class="terms-box"><p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca...</p><p>Gizlilik Sözleşmesi...</p></div></div></div>
+    
+    <!-- GÜNCELLENMİŞ KAYIT PENCERESİ -->
+    <div id="registrationModal" class="modal" style="z-index: 2000;">
         <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h4>Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesi</h4>
-            <div class="terms-box" style="height: 300px; overflow-y: scroll; border:1px solid #eee; padding:10px;">
-                <p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, kişisel verileriniz; veri sorumlusu olarak Yıldız Konakları Site Yönetimi tarafından aşağıda açıklanan kapsamda işlenebilecektir.</p>
-                <p>Toplanan kişisel verileriniz, site sakinlerimize sunulan hizmetlerin iyileştirilmesi, aidat ve gider takibinin yapılması, site içi iletişimin sağlanması ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla KVKK’nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları ve amaçları dahilinde işlenecektir.</p>
-                <p>İşlenen kişisel verileriniz; yukarıda sayılan amaçların gerçekleştirilmesi doğrurultusunda, yetkili kamu kurum ve kuruluşlarına, hukuki uyuşmazlıkların giderilmesi için avukatlara veya adli makamlara aktarılabilecektir.</p>
-                <p>Kişisel veri sahibi olarak KVKK’nın 11. maddesi uyarınca sahip olduğunuz hakları kullanmak için bizimle iletişime geçebilirsiniz.</p>
-                <p><strong>Gizlilik Sözleşmesi:</strong> Bu platforma kaydolarak, paylaştığınız kişisel verilerin (Ad, Soyad, Telefon, E-posta) yalnızca site yönetimi hizmetleri kapsamında kullanılacağını, üçüncü kişilerle paylaşılmayacağını kabul etmiş olursunuz.</p>
+            <h4 style="color:var(--primary); margin-top:0; margin-bottom:15px;">Site Kaydı Oluştur</h4>
+            
+            <!-- Mesajın Görüleceği Alan -->
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #014f86;">
+                <p id="welcomeMessageText" style="margin:0; color:#014f86; font-size:0.95em; line-height:1.5;"></p>
             </div>
+
+            <input type="tel" id="regTelefon" class="form-control mb-2" placeholder="Telefon Numaranız">
+            <input type="email" id="regMail" class="form-control mb-2" placeholder="E-posta Adresiniz">
+            <input type="text" id="regAdres" class="form-control mb-2" placeholder="İkametgah Adresiniz">
+            <button id="saveRegistrationBtn" class="btn btn-primary full-width mt-3">Kaydet</button>
+            <div id="registrationMessage" class="message hidden"></div>
         </div>
     </div>
-
-    <div id="registrationModal" class="modal"><div class="modal-content"><h4>Kayıt</h4><input type="tel" id="regTelefon" class="form-control" placeholder="Tel"><input type="email" id="regMail" class="form-control" placeholder="Mail"><input type="text" id="regAdres" class="form-control" placeholder="Adres"><button id="saveRegistrationBtn" class="btn btn-primary full-width">Kaydet</button><div id="registrationMessage" class="message hidden"></div></div></div>
+    
     <div id="apartmentDetailModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h3 id="apartmentDetailTitle">Detay</h3><div id="apartmentDetailContent" style="margin-bottom:20px;"></div><div class="modal-actions" style="display:flex;gap:10px;justify-content:space-between;"><button id="editApartmentDetailBtn" class="btn btn-warning">Düzenle</button><button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre</button><button id="deleteApartmentBtn" class="btn btn-danger">Sil</button></div></div></div>
 
     <script type="module" src="app.js"></script>
