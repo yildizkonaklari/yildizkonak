@@ -151,7 +151,6 @@ document.getElementById('saveRegistrationBtn').addEventListener('click', async (
         await updateDoc(doc(db, 'apartments', loggedInUsername), {
             telefon: tel,
             mail: mail,
-            adres: adres,
             profileCompleted: true
         });
         
