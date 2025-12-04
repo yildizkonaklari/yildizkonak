@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <link rel="stylesheet" href="style.css">
+    
     <!-- PDF ve Tablo Kütüphaneleri -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
@@ -29,7 +30,7 @@
                 <label class="custom-checkbox">
                     <input type="checkbox" id="loginTerms">
                     <span class="checkmark"></span>
-                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Sözleşmesini</a> okudum, onaylıyorum.</span>
+                    <span class="label-text"><a href="#" id="openTermsModal">Kullanıcı Aydınlatma Metni ve Gizlilik Sözleşmesini</a> okudum, onaylıyorum.</span>
                 </label>
             </div>
             <button id="loginButton" class="btn-login" disabled>GİRİŞ YAP</button>
@@ -50,17 +51,36 @@
                 <p id="sidebar-role-text">Yönetim Paneli</p>
             </div>
             <nav class="sidebar-nav">
+                <!-- Yönetici Menüsü -->
                 <div id="admin-menu-items" class="hidden">
-                    <button class="nav-item active" data-target="view-dashboard"><span class="icon">📊</span> Özet Durum</button>
-                    <button class="nav-item" id="nav-finance" data-target="view-finance"><span class="icon">💳</span> Finans & İşlemler</button>
-                    <button class="nav-item" data-target="view-expenses"><span class="icon">🧾</span> Gider Yönetimi</button>
-                    <button class="nav-item" data-target="view-apartments"><span class="icon">🏢</span> Daire Listesi</button>
-                    <button class="nav-item" id="nav-settings" data-target="view-settings"><span class="icon">⚙️</span> Ayarlar</button>
+                    <button class="nav-item active" data-target="view-dashboard">
+                        <span class="icon">📊</span> Özet Durum
+                    </button>
+                    <button class="nav-item" id="nav-finance" data-target="view-finance">
+                        <span class="icon">💳</span> Finans & İşlemler
+                    </button>
+                    <button class="nav-item" data-target="view-expenses">
+                        <span class="icon">🧾</span> Gider Yönetimi
+                    </button>
+                    <button class="nav-item" data-target="view-apartments">
+                        <span class="icon">🏢</span> Daire Listesi
+                    </button>
+                    <button class="nav-item" id="nav-settings" data-target="view-settings">
+                        <span class="icon">⚙️</span> Ayarlar
+                    </button>
                 </div>
+
+                <!-- Kullanıcı Menüsü -->
                 <div id="user-menu-items" class="hidden">
-                    <button class="nav-item active" data-target="user-view-debt"><span class="icon">💰</span> Bakiyem</button>
-                    <button class="nav-item" data-target="user-view-profile"><span class="icon">👤</span> Profilim</button>
-                    <button class="nav-item" id="nav-user-expenses" data-target="user-view-expenses"><span class="icon">📉</span> Site Giderleri</button>
+                    <button class="nav-item active" data-target="user-view-debt">
+                        <span class="icon">💰</span> Bakiyem
+                    </button>
+                    <button class="nav-item" data-target="user-view-profile">
+                        <span class="icon">👤</span> Profilim
+                    </button>
+                    <button class="nav-item" id="nav-user-expenses" data-target="user-view-expenses">
+                        <span class="icon">📉</span> Site Giderleri
+                    </button>
                 </div>
             </nav>
             <div class="sidebar-footer">
@@ -78,7 +98,7 @@
                 </div>
             </header>
 
-            <!-- YÖNETİCİ: DASHBOARD -->
+            <!-- YÖNETİCİ SAYFALARI -->
             <div id="view-dashboard" class="view-section active">
                 <h2 class="page-title">Genel Bakış</h2>
                 <div class="dashboard-grid">
@@ -87,37 +107,26 @@
                     <div class="dashboard-card card-red"><span class="title">Bu Ayki Gider</span><span id="dashboardMonthlyExpense" class="value">...</span></div>
                     <div class="dashboard-card card-orange"><span class="title">Toplam Alacak</span><span id="dashboardUnpaidCount" class="value">...</span></div>
                 </div>
-                
-                <!-- SON İŞLEMLER -->
                 <div class="recent-transactions-container">
                     <h3 style="margin-top:0; margin-bottom:15px; color:var(--primary); font-size:1.2em;">Son İşlemler</h3>
-                    <div class="table-responsive">
-                        <table class="recent-transactions-table">
-                            <thead><tr><th>Daire</th><th>İşlem Türü</th><th>Açıklama</th><th>Tarih</th><th style="text-align:right">Tutar</th></tr></thead>
-                            <tbody id="dashboardRecentTransactions"><tr><td colspan="5" style="text-align:center; color:#999;">Yükleniyor...</td></tr></tbody>
-                        </table>
-                    </div>
+                    <div class="table-responsive"><table class="recent-transactions-table"><thead><tr><th>Daire</th><th>İşlem Türü</th><th>Açıklama</th><th>Tarih</th><th style="text-align:right">Tutar</th></tr></thead><tbody id="dashboardRecentTransactions"><tr><td colspan="5" style="text-align:center; color:#999;">Yükleniyor...</td></tr></tbody></table></div>
                 </div>
                 <div style="text-align: right; margin-top:10px;"><button id="refreshDataBtn" class="btn btn-secondary btn-sm">⟳ Verileri Yenile</button></div>
             </div>
 
-            <!-- YÖNETİCİ: FİNANS -->
             <div id="view-finance" class="view-section hidden">
                 <h2 class="page-title">Finansal İşlemler</h2>
                 <div class="card">
-                    <label>İşlem Yapılacak Daire:</label>
-                    <select id="islemDaireSelect" class="form-control mb-3"></select>
-
+                    <label>İşlem Yapılacak Daire:</label><select id="islemDaireSelect" class="form-control mb-3"></select>
                     <div class="tab-container">
                         <button class="tab-button active" id="btnTabBorc">Borç Ekle</button>
                         <button class="tab-button" id="btnTabTahsilat">Tahsilat Ekle</button>
                         <button class="tab-button" id="btnTabEkstre">Hesap Ekstresi</button>
                     </div>
-
                     <div id="contentTabBorc" class="tab-content-panel active">
                         <div class="form-row"><div class="col"><label>Kime:</label><select id="borcKime" class="form-control"></select></div><div class="col"><label>Tarih:</label><input type="date" id="borcTarih" class="form-control"></div></div>
-                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama">
-                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar">
+                        <input type="text" id="borcAciklama" class="form-control mb-2" placeholder="Açıklama (Örn: Aidat)">
+                        <input type="number" id="borcTutar" class="form-control mb-3" placeholder="Tutar (₺)">
                         <button id="addDebtBtn" class="btn btn-primary full-width">Borç Ekle</button>
                         <div id="addDebtMessage" class="message hidden"></div>
                         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee;">
@@ -125,16 +134,14 @@
                             <button id="addLateFeeBtn" class="btn btn-warning full-width">Bu Ay İçin %5 Gecikme Tazminatı Uygula</button>
                         </div>
                     </div>
-
                     <div id="contentTabTahsilat" class="tab-content-panel">
                         <p class="info-text">(Yukarıda seçilen daireye işlenir)</p>
                         <input type="date" id="tahsilatTarih" class="form-control mb-2">
-                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar">
-                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama">
+                        <input type="number" id="tahsilatTutar" class="form-control mb-2" placeholder="Tutar (₺)">
+                        <input type="text" id="tahsilatAciklama" class="form-control mb-3" placeholder="Açıklama (Örn: Havale)">
                         <button id="addTahsilatBtn" class="btn btn-success full-width">Tahsilat Ekle</button>
                         <div id="addTahsilatMessage" class="message hidden"></div>
                     </div>
-
                     <div id="contentTabEkstre" class="tab-content-panel">
                         <div id="userInfoDisplay" class="user-profile-display hidden"></div>
                         <div class="table-responsive"><table class="transaction-table mobile-responsive-table"><thead><tr><th>Tarih</th><th>Açıklama</th><th>Tutar</th><th>Bakiye</th><th class="admin-only"></th></tr></thead><tbody id="adminTransactionList"></tbody></table></div>
@@ -144,28 +151,20 @@
                 </div>
             </div>
 
-            <!-- YÖNETİCİ: GİDERLER -->
             <div id="view-expenses" class="view-section hidden">
                 <h2 class="page-title">Gider Yönetimi</h2>
-                <div class="card admin-only">
-                    <h4>Yeni Gider</h4>
-                    <div class="form-row"><input type="date" id="expenseDateInput" class="form-control"><input type="text" id="expenseNameInput" class="form-control" placeholder="Harcama Adı"><input type="number" id="expenseAmountInput" class="form-control" placeholder="Tutar"></div>
-                    <button id="saveExpenseBtn" class="btn btn-primary full-width mt-2">Kaydet</button>
-                    <div id="expenseMessage" class="message hidden"></div>
-                </div>
+                <div class="card admin-only"><h4>Yeni Gider</h4><div class="form-row"><input type="date" id="expenseDateInput" class="form-control"><input type="text" id="expenseNameInput" class="form-control" placeholder="Harcama Adı"><input type="number" id="expenseAmountInput" class="form-control" placeholder="Tutar"></div><button id="saveExpenseBtn" class="btn btn-primary full-width mt-2">Kaydet</button><div id="expenseMessage" class="message hidden"></div></div>
                 <div class="month-selector"><button id="expensePrevMonthBtn">◀</button><span id="expenseCurrentMonthDisplay"></span><button id="expenseNextMonthBtn">▶</button></div>
                 <div class="action-buttons mt-2"><button id="publishButton" class="btn btn-warning admin-only">Giderleri Yayınla</button><button id="downloadMonthlyExpensesBtn" class="btn btn-success">Rapor İndir (PDF)</button></div>
                 <div id="adminExpenseListContainer" class="expense-list mt-3"></div><div class="totals" id="adminExpenseTotals"></div>
             </div>
 
-            <!-- YÖNETİCİ: DAİRELER -->
             <div id="view-apartments" class="view-section hidden">
                 <h2 class="page-title">Daireler</h2>
                 <input type="search" id="apartmentSearchInput" class="form-control" placeholder="Daire ara...">
-                <div id="apartmentListContainer" class="apartment-list mt-3"></div>
+                <div id="apartmentListContainer" class="apartment-list mt-3"><div style="text-align:center; padding:20px;">Yükleniyor...</div></div>
             </div>
 
-            <!-- YÖNETİCİ: AYARLAR -->
             <div id="view-settings" class="view-section hidden">
                 <h2 class="page-title">Ayarlar</h2>
                 <div class="card">
@@ -177,7 +176,7 @@
                     <div id="passwordMessage" class="message hidden"></div>
                 </div>
                 <div class="card mt-3">
-                    <h4>Toplu Profil İşlemleri</h4>
+                    <h4>Toplu İşlemler</h4>
                     <div class="flex-wrap-gap"><button id="downloadTemplateBtn" class="btn btn-outline">Şablon İndir</button><input type="file" id="profileTemplateInput" accept=".csv" style="display:none"><button id="uploadTemplateBtn" class="btn btn-outline">Yükle</button><button id="downloadAllProfilesCsvBtn" class="btn btn-success">Yedek Al</button><button id="deleteAllTransactionsBtn" class="btn btn-danger" style="margin-left:auto">Sıfırla</button></div>
                     <div id="settingsMessage" class="message hidden"></div>
                 </div>
@@ -202,8 +201,31 @@
     </div>
 
     <!-- MODALS -->
-    <div id="termsModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h4>Kullanıcı Sözleşmesi</h4><div class="terms-box"><p>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca...</p><p>Gizlilik Sözleşmesi...</p></div></div></div>
-    <div id="registrationModal" class="modal"><div class="modal-content"><h4>Kayıt</h4><input type="tel" id="regTelefon" class="form-control" placeholder="Tel"><input type="email" id="regMail" class="form-control" placeholder="Mail"><input type="text" id="regAdres" class="form-control" placeholder="Adres"><button id="saveRegistrationBtn" class="btn btn-primary full-width">Kaydet</button><div id="registrationMessage" class="message hidden"></div></div></div>
+    <!-- KAYIT EKRANI GÜNCELLENDİ -->
+    <div id="registrationModal" class="modal" style="z-index: 2000;">
+        <div class="modal-content">
+            <h4 style="color:var(--primary); border-bottom: 2px solid #eee; padding-bottom:10px;">Site Kaydı Oluştur</h4>
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; color: #0d47a1; font-size: 0.95em;">
+                <p id="welcomeMessageText" style="margin:0; line-height: 1.5;">
+                    <!-- JS ile doldurulacak -->
+                </p>
+            </div>
+            
+            <label style="font-weight:600; display:block; margin-bottom:5px;">Telefon Numaranız:</label>
+            <input type="tel" id="regTelefon" class="form-control mb-3" placeholder="Örn: 0532 123 45 67">
+            
+            <label style="font-weight:600; display:block; margin-bottom:5px;">E-posta Adresiniz:</label>
+            <input type="email" id="regMail" class="form-control mb-3" placeholder="Örn: ornek@mail.com">
+            
+            <label style="font-weight:600; display:block; margin-bottom:5px;">İkametgah Adresiniz:</label>
+            <textarea id="regAdres" class="form-control mb-3" rows="3" placeholder="Açık adresiniz..."></textarea>
+            
+            <button id="saveRegistrationBtn" class="btn btn-primary full-width" style="font-size: 1.1em; padding: 12px;">BİLGİLERİ KAYDET</button>
+            <div id="registrationMessage" class="message hidden"></div>
+        </div>
+    </div>
+
+    <div id="termsModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h4>Kullanıcı Sözleşmesi</h4><div class="terms-box" style="height:300px;overflow-y:auto;padding:10px;border:1px solid #eee;"><p>6698 sayılı Kişisel Verilerin Korunması Kanunu...</p></div></div></div>
     <div id="apartmentDetailModal" class="modal"><div class="modal-content"><span class="modal-close">&times;</span><h3 id="apartmentDetailTitle">Detay</h3><div id="apartmentDetailContent" style="margin-bottom:20px;"></div><div class="modal-actions" style="display:flex;gap:10px;justify-content:space-between;"><button id="editApartmentDetailBtn" class="btn btn-warning">Düzenle</button><button id="downloadApartmentStatementBtn" class="btn btn-secondary">Ekstre</button><button id="deleteApartmentBtn" class="btn btn-danger">Sil</button></div></div></div>
 
     <script type="module" src="app.js"></script>
