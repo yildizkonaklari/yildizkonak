@@ -129,12 +129,43 @@ async function setupPanel(type) {
         
         if(!ud.profileCompleted) {
             document.getElementById('registrationModal').style.display = 'block';
-            document.getElementById('welcomeUserName').textContent = `${ud.adi || ''} ${ud.soyadi || ''}`;
+            document.getElementById('welcomeMessageText').innerHTML = 
+                `Değerli Site Sakinimiz <strong>${ud.adi || ''} ${ud.soyadi || ''}</strong>, <br>Ayvalık Yıldız Konakları Site Yönetim Sistemine hoş geldiniz. Site kaydınızı oluşturmak için lütfen aşağıdaki formu doldurunuz.`;
         }
         await checkProfileAndExpensesVisibility();
         switchView('user-view-debt');
     }
 }
+
+// *** KAYIT KAYDETME FONKSİYONU ***
+document.getElementById('saveRegistrationBtn').addEventListener('click', async () => {
+    const tel = document.getElementById('regTelefon').value.trim();
+    const mail = document.getElementById('regMail').value.trim();
+    const adres = document.getElementById('regAdres').value.trim();
+
+    if(!tel || !mail || !adres) {
+        return showMessage("registrationMessage", "Lütfen tüm alanları doldurun.", true);
+    }
+
+    try {
+        await updateDoc(doc(db, 'apartments', loggedInUsername), {
+            telefon: tel,
+            mail: mail,
+            adres: adres,
+            profileCompleted: true
+        });
+        
+        showMessage("registrationMessage", "Kaydınız başarıyla oluşturuldu! Yönlendiriliyorsunuz...");
+        setTimeout(() => {
+            document.getElementById('registrationModal').style.display = 'none';
+            window.location.reload(); // Refresh to update UI
+        }, 1500);
+        
+    } catch (e) {
+        console.error(e);
+        showMessage("registrationMessage", "Bir hata oluştu.", true);
+    }
+});
 
 function fillFlatSelects() {
     const s = ["islemDaireSelect", "borcKime", "sifreDaire"];
@@ -154,6 +185,8 @@ async function updateAdminDashboard() {
     
     let recentTxns = [];
 
+    // Parallel fetch for dashboard is complex, keeping simple loop for now as dashboard loads once.
+    // For a cleaner approach, you can optimize this too, but list page is priority.
     for (const d of daireler) {
         const s = await getDocs(collection(db, 'apartments', d, 'transactions'));
         let bal = 0;
@@ -330,24 +363,57 @@ async function downloadMonthlyExpensesPdf() {
     doc.save(`Gider_${m}_${y}.pdf`);
 }
 
-// 4. APARTMENTS
+// 4. APARTMENTS LIST (OPTIMIZED)
 async function loadApartmentsListPage() {
-    allApartmentsData = [];
-    for(const d of daireler) {
-        const f = await getDoc(doc(db, 'apartments', d));
-        let bal = 0;
-        const s = await getDocs(collection(db, 'apartments', d, 'transactions'));
-        s.forEach(x => { if(x.data().tarih <= todayStr) bal += Number(x.data().tutar); });
-        allApartmentsData.push({ id: d, ...f.data(), balance: bal });
-    }
     const cont = document.getElementById('apartmentListContainer');
-    cont.innerHTML = allApartmentsData.map(d => {
+    cont.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Daireler Yükleniyor...</div>';
+    
+    allApartmentsData = [];
+    
+    // 1. Fetch all apartment profiles first
+    const promises = daireler.map(async (d) => {
+        const docRef = doc(db, 'apartments', d);
+        const docSnap = await getDoc(docRef);
+        const data = docSnap.exists() ? docSnap.data() : {};
+        
+        // 2. Fetch transactions for this apartment
+        const transRef = collection(db, 'apartments', d, 'transactions');
+        const transSnap = await getDocs(transRef);
+        
+        let bal = 0;
+        transSnap.forEach(t => {
+            if(t.data().tarih <= todayStr) bal += Number(t.data().tutar);
+        });
+        
+        return { id: d, ...data, balance: bal };
+    });
+
+    // Wait for all to finish (Parallel execution)
+    allApartmentsData = await Promise.all(promises);
+    
+    renderApartmentList(allApartmentsData);
+}
+
+function renderApartmentList(list) {
+    const container = document.getElementById('apartmentListContainer');
+    if (list.length === 0) {
+        container.innerHTML = '<p style="text-align:center">Bulunamadı.</p>';
+        return;
+    }
+    
+    container.innerHTML = list.map(d => {
         let colorClass = 'text-muted'; 
         if (d.balance > 0) colorClass = 'text-danger'; 
         if (d.balance < 0) colorClass = 'text-success'; 
+        
         return `<div class="apartment-list-item" onclick="openAptDetail('${d.id}')">
-            <div class="apartment-info"><span class="daire-no">${d.id}</span><span>${d.adi || 'Bilgi Yok'} ${d.soyadi || ''}</span></div>
-            <div class="apartment-balance"><span class="balance-value ${colorClass}">${formatCurrency(d.balance)}</span></div>
+            <div class="apartment-info">
+                <span class="daire-no">${d.id}</span>
+                <span class="owner-name">${d.adi || 'Bilgi Yok'} ${d.soyadi || ''}</span>
+            </div>
+            <div class="apartment-balance">
+                <span class="balance-value ${colorClass}">${formatCurrency(d.balance)}</span>
+            </div>
         </div>`;
     }).join('');
 }
@@ -445,12 +511,10 @@ document.getElementById('addTahsilatBtn').addEventListener('click', async () => 
     showMessage("addTahsilatMessage", "Eklendi."); loadAdminTransactionLedger();
 });
 
-// LATE FEE LOGIC (GÜNCELLENDİ: Tarih kontrolü eklendi)
+// LATE FEE LOGIC
 document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
     const now = new Date();
     const feeName = `${aylar[now.getMonth()]} ${now.getFullYear()} Gecikme Tazminatı`;
-    
-    // GÜNCELLEME BURADA: Ayın ilk günü (örn: '2025-12-01')
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
     if(!confirm(`DİKKAT: ${currentMonthStart} tarihinden ÖNCEKİ ana borçlar taranıp %5 gecikme tazminatı eklenecek.\n(Bu ayın aidatları etkilenmeyecek)\n\nOnaylıyor musunuz?`)) return;
@@ -465,23 +529,16 @@ document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
         s.forEach(snap => {
             const t = snap.data();
             if(t.aciklama === feeName) applied = true;
-            
-            // Tarih Kontrolü: Sadece bu ayın başından önceki borçları topla
             if (t.tarih < currentMonthStart) {
                 if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) {
                     pDebt += Number(t.tutar);
                 }
             }
-            
-            // Tahsilatların tarihine bakılmaz, toplam ödeme düşülür
             if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
         });
 
         if(applied) continue;
-        
-        // Kalan Ana Borç = (Eski Ana Borçlar Toplamı) - (Tüm Tahsilatlar)
         const rem = pDebt - tPay;
-        
         if(rem > 0) {
             const fee = parseFloat((rem * 0.05).toFixed(2));
             b.set(doc(collection(db, 'apartments', d, 'transactions')), { tarih:todayStr, tur:'borc', aciklama:feeName, tutar:fee, timestamp:new Date() });
@@ -570,7 +627,6 @@ window.openAptDetail = async (id) => {
     document.getElementById('apartmentDetailContent').innerHTML = html;
     document.getElementById('apartmentDetailModal').style.display = 'block';
     
-    // Bind modal buttons
     document.getElementById('editApartmentDetailBtn').onclick = () => window.editApt(id);
     document.getElementById('deleteApartmentBtn').onclick = () => window.delApt(id);
     document.getElementById('downloadApartmentStatementBtn').onclick = () => window.downloadAccountStatementPdf(id);
