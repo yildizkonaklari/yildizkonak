@@ -167,6 +167,37 @@ document.getElementById('saveRegistrationBtn').addEventListener('click', async (
     }
 });
 
+// *** KULLANICI ŞİFRE DEĞİŞTİRME FONKSİYONU (EKLENDİ) ***
+async function changeUserPassword() {
+    const currentPassword = prompt("Mevcut şifrenizi girin:");
+    if (currentPassword === null) return;
+
+    try {
+        const userDoc = await getDoc(doc(db, 'apartments', loggedInUsername));
+        if (!userDoc.exists() || userDoc.data().password !== currentPassword) {
+            return showMessage("profileMessage", "Mevcut şifre hatalı.", true);
+        }
+
+        const newPassword = prompt("Yeni şifrenizi girin (en az 3 karakter):");
+        if (newPassword === null) return;
+        if (newPassword.length < 3) {
+            return showMessage("profileMessage", "Yeni şifre en az 3 karakter olmalı.", true);
+        }
+        
+        const newPasswordConfirm = prompt("Yeni şifrenizi tekrar girin:");
+            if (newPassword !== newPasswordConfirm) {
+            return showMessage("profileMessage", "Şifreler eşleşmiyor.", true);
+        }
+
+        await updateDoc(doc(db, 'apartments', loggedInUsername), { password: newPassword });
+        showMessage("profileMessage", "Şifreniz başarıyla değiştirildi.");
+
+    } catch (error) {
+        console.error("Şifre değiştirilirken hata:", error);
+        showMessage("profileMessage", "Şifre değiştirilirken bir hata oluştu.", true);
+    }
+}
+
 function fillFlatSelects() {
     const s = ["islemDaireSelect", "borcKime", "sifreDaire"];
     s.forEach(id => {
@@ -185,8 +216,6 @@ async function updateAdminDashboard() {
     
     let recentTxns = [];
 
-    // Parallel fetch for dashboard is complex, keeping simple loop for now as dashboard loads once.
-    // For a cleaner approach, you can optimize this too, but list page is priority.
     for (const d of daireler) {
         const s = await getDocs(collection(db, 'apartments', d, 'transactions'));
         let bal = 0;
@@ -602,6 +631,9 @@ document.getElementById('saveViewerAdminPasswordBtn').onclick = async () => {
     showMessage('passwordMessage', 'Gözlemci şifresi güncellendi');
 };
 
+// USER PASSWORD CHANGE LISTENER EKLENDİ
+document.getElementById('changePasswordBtn').addEventListener('click', changeUserPassword);
+
 document.getElementById('userBalanceCard').addEventListener('click', function() {
     this.classList.toggle('active');
     document.getElementById('userBalanceDetails').classList.toggle('show');
@@ -612,21 +644,10 @@ window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(d
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
 window.openAptDetail = async (id) => {
     const d = allApartmentsData.find(x => x.id === id);
-    const lastLoginDate = d.lastLogin ? new Date(d.lastLogin.seconds * 1000).toLocaleString('tr-TR') : 'Hiç giriş yapmadı';
-    
-    let html = `
-        <div class="detail-row"><span class="label">Daire:</span> <span class="value">${d.id}</span></div>
-        <div class="detail-row"><span class="label">Ad Soyad:</span> <span class="value">${d.adi || '-'} ${d.soyadi || '-'}</span></div>
-        <div class="detail-row"><span class="label">Telefon:</span> <span class="value">${d.telefon || '-'}</span></div>
-        <div class="detail-row"><span class="label">E-posta:</span> <span class="value">${d.mail || '-'}</span></div>
-        <div class="detail-row"><span class="label">Adres:</span> <span class="value">${d.adres || '-'}</span></div>
-        <div class="detail-row"><span class="label">Son Giriş:</span> <span class="value">${lastLoginDate}</span></div>
-        <div class="detail-row"><span class="label">Güncel Bakiye:</span> <span class="value ${d.balance > 0 ? 'text-danger' : 'text-success'}" style="font-weight:bold;">${formatCurrency(d.balance)}</span></div>
-    `;
-    
-    document.getElementById('apartmentDetailContent').innerHTML = html;
+    document.getElementById('apartmentDetailContent').innerHTML = `<p>${d.adi||''} ${d.soyadi||''}</p><p>Bakiye: ${formatCurrency(d.balance)}</p>`;
     document.getElementById('apartmentDetailModal').style.display = 'block';
     
+    // Bind modal buttons
     document.getElementById('editApartmentDetailBtn').onclick = () => window.editApt(id);
     document.getElementById('deleteApartmentBtn').onclick = () => window.delApt(id);
     document.getElementById('downloadApartmentStatementBtn').onclick = () => window.downloadAccountStatementPdf(id);
