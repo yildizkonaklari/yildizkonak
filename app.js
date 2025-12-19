@@ -159,13 +159,11 @@ function fillFlatSelects() {
 // ----------------------------------------------------
 
 async function loadReportsPage() {
-    // Fill Report Flat Filter
     const sel = document.getElementById('reportFlatFilter');
     if(sel.options.length === 0) {
         sel.innerHTML = '<option value="all">Tüm Daireler</option>';
         daireler.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
     }
-    // Set default dates if empty
     if(!document.getElementById('reportStartDate').value) {
         const d = new Date(); d.setMonth(d.getMonth()-1);
         document.getElementById('reportStartDate').value = d.toISOString().split('T')[0];
@@ -173,7 +171,62 @@ async function loadReportsPage() {
     }
 }
 
-// 1. Fetch All Data (Optimize: Tek seferde tümünü çekip bellekte işle)
+// GÜNCELLENDİ: Borçlu Raporu Desteği
+document.getElementById('applyReportFilterBtn').addEventListener('click', async () => {
+    const type = document.getElementById('reportTypeFilter').value;
+    if(type === 'debtors') {
+        await fetchDebtorsReport();
+    } else {
+        await fetchAllReportData();
+    }
+});
+
+// YENİ: Borçlu Listesi (Bakiyeli)
+async function fetchDebtorsReport() {
+    document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">Borçlu listesi hazırlanıyor...</td></tr>';
+    
+    const promises = daireler.map(async (d) => {
+        const docSnap = await getDoc(doc(db, 'apartments', d));
+        const userData = docSnap.exists() ? docSnap.data() : {};
+        const fullName = `${userData.adi || ''} ${userData.soyadi || ''}`.trim() || 'Bilgi Yok';
+
+        const q = query(collection(db, 'apartments', d, 'transactions'));
+        const tSnap = await getDocs(q);
+        
+        let bal = 0;
+        tSnap.forEach(t => {
+             if(t.data().tarih <= todayStr) bal += Number(t.data().tutar);
+        });
+
+        if(bal > 0) {
+            return {
+                date: todayStr,
+                type: 'debtor',
+                typeLabel: 'Borçlu',
+                owner: d,
+                desc: fullName,
+                amount: bal
+            };
+        }
+        return null;
+    });
+
+    const results = await Promise.all(promises);
+    filteredReportData = results.filter(r => r !== null);
+    filteredReportData.sort((a,b) => b.amount - a.amount);
+
+    // Özet Güncelle
+    let totalReceivable = 0;
+    filteredReportData.forEach(i => totalReceivable += i.amount);
+    
+    document.getElementById('repTotalInc').textContent = '-';
+    document.getElementById('repTotalExp').textContent = '-';
+    document.getElementById('repNetBal').textContent = formatCurrency(totalReceivable) + " (Top. Alacak)";
+
+    currentReportPage = 1;
+    renderReportTable();
+}
+
 async function fetchAllReportData() {
     document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">Veriler yükleniyor, lütfen bekleyiniz...</td></tr>';
     
@@ -194,14 +247,13 @@ async function fetchAllReportData() {
         });
     });
 
-    // Daire İşlemlerini Çek (Paralel)
+    // Daire İşlemlerini Çek
     const promises = daireler.map(async (d) => {
         const tSnap = await getDocs(collection(db, 'apartments', d, 'transactions'));
         tSnap.forEach(t => {
             const tr = t.data();
             let typeLabel = 'Bilinmiyor';
             if (tr.tur === 'borc') {
-                // Aidat vs Demirbaş ayrımı (Açıklamaya göre basit kontrol)
                 if (tr.aciklama.toLowerCase().includes('demirbaş')) typeLabel = 'Demirbaş Borcu';
                 else if (tr.aciklama.toLowerCase().includes('gecikme')) typeLabel = 'Gecikme Tazminatı';
                 else typeLabel = 'Aidat/Borç';
@@ -215,7 +267,7 @@ async function fetchAllReportData() {
                 typeLabel: typeLabel,
                 owner: d,
                 desc: tr.aciklama,
-                amount: Math.abs(Number(tr.tutar)), // Rapor için pozitif göster
+                amount: Math.abs(Number(tr.tutar)),
                 sortDate: new Date(tr.tarih)
             });
         });
@@ -223,12 +275,10 @@ async function fetchAllReportData() {
 
     await Promise.all(promises);
     
-    // Tarihe göre sırala (Yeniden eskiye)
     allReportData.sort((a, b) => b.sortDate - a.sortDate);
     applyReportFilters();
 }
 
-// 2. Filtrele
 function applyReportFilters() {
     const sDate = document.getElementById('reportStartDate').value;
     const eDate = document.getElementById('reportEndDate').value;
@@ -252,14 +302,12 @@ function applyReportFilters() {
     });
 
     // Özet Hesapla
-    let tInc = 0, tExp = 0, tDebt = 0;
+    let tInc = 0, tExp = 0;
     filteredReportData.forEach(i => {
         if(i.type === 'income') tInc += i.amount;
         if(i.type === 'expense') tExp += i.amount;
-        if(i.type === 'debt') tDebt += i.amount;
     });
     
-    // Sitenin kasası = Tahsilat - Gider
     const net = tInc - tExp;
 
     document.getElementById('repTotalInc').textContent = formatCurrency(tInc);
@@ -270,7 +318,6 @@ function applyReportFilters() {
     renderReportTable();
 }
 
-// 3. Tabloyu Çiz (Sayfalama)
 function renderReportTable() {
     const tbody = document.getElementById('reportTableBody');
     const start = (currentReportPage - 1) * itemsPerPage;
@@ -291,7 +338,8 @@ function renderReportTable() {
         let color = '#333';
         if(item.type === 'income') color = '#2b9348';
         if(item.type === 'expense') color = '#d90429';
-        if(item.type === 'debt') color = '#ffb703'; // Borç tahakkuku sarı/turuncu
+        if(item.type === 'debt') color = '#ffb703';
+        if(item.type === 'debtor') color = '#d90429'; // Borçlular kırmızı
 
         return `<tr>
             <td data-label="Tarih">${formatDate(item.date)}</td>
@@ -303,17 +351,14 @@ function renderReportTable() {
     }).join('');
 }
 
-// 4. PDF İndir (Türkçe Karakter Destekli - Autotable)
 function downloadReportPdf() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    doc.setFont("helvetica", "normal"); // jsPDF'te standart font
+    doc.setFont("helvetica", "normal");
     doc.text("Site Finansal Raporu", 14, 15);
-    
-    // Tarih aralığı bilgisi
     doc.setFontSize(10);
-    doc.text(`Tarih: ${formatDate(document.getElementById('reportStartDate').value)} - ${formatDate(document.getElementById('reportEndDate').value)}`, 14, 22);
+    doc.text(`Tarih: ${formatDate(todayStr)}`, 14, 22);
 
     const rows = filteredReportData.map(item => [
         formatDate(item.date),
@@ -327,25 +372,27 @@ function downloadReportPdf() {
         head: [['Tarih', 'Tür', 'İlgili', 'Açıklama', 'Tutar']],
         body: rows,
         startY: 30,
-        styles: { font: "helvetica", fontSize: 9 }, // Türkçe karakterler için temel font desteği, karmaşık karakterler bazen sorun olabilir ama autotable iyidir.
+        styles: { font: "helvetica", fontSize: 9 },
         headStyles: { fillColor: [1, 79, 134] }
     });
 
-    // Altına Özet Ekle
     const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Toplam Gelir: ${document.getElementById('repTotalInc').textContent}`, 14, finalY);
-    doc.text(`Toplam Gider: ${document.getElementById('repTotalExp').textContent}`, 14, finalY + 6);
-    doc.text(`Net Kasa: ${document.getElementById('repNetBal').textContent}`, 14, finalY + 12);
+    // Sadece borçlu raporu değilse özeti yaz
+    if(document.getElementById('reportTypeFilter').value !== 'debtors') {
+        doc.text(`Toplam Gelir: ${document.getElementById('repTotalInc').textContent}`, 14, finalY);
+        doc.text(`Toplam Gider: ${document.getElementById('repTotalExp').textContent}`, 14, finalY + 6);
+        doc.text(`Net Kasa: ${document.getElementById('repNetBal').textContent}`, 14, finalY + 12);
+    } else {
+        doc.text(`Toplam Alacak: ${document.getElementById('repNetBal').textContent}`, 14, finalY);
+    }
 
     doc.save('Site_Raporu.pdf');
 }
 
-// Rapor Buton Listenerları
-document.getElementById('applyReportFilterBtn').addEventListener('click', fetchAllReportData);
+// Buton Listenerları
 document.getElementById('downloadReportPdfBtn').addEventListener('click', downloadReportPdf);
 document.getElementById('prevPageBtn').addEventListener('click', () => { if(currentReportPage > 1) { currentReportPage--; renderReportTable(); }});
 document.getElementById('nextPageBtn').addEventListener('click', () => { if(currentReportPage * itemsPerPage < filteredReportData.length) { currentReportPage++; renderReportTable(); }});
-
 
 // ----------------------------------------------------
 // *** DİĞER FONKSİYONLAR DEVAM EDİYOR ***
