@@ -14,7 +14,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// --- GLOBAL DEĞİŞKENLER ---
+// GLOBAL
 let loggedInUsername = null;
 let adminCredentials = {}, viewerAdminCredentials = {};
 let currentAdminRole = null; 
@@ -26,7 +26,13 @@ const todayStr = new Date().toISOString().split('T')[0];
 const daireler = [];
 ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => { for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`); });
 
-// --- YARDIMCI FONKSİYONLAR ---
+// Rapor Değişkenleri
+let allReportData = [];
+let filteredReportData = [];
+let currentReportPage = 1;
+const itemsPerPage = 20;
+
+// HELPER
 function showMessage(id, msg, isError = false) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -39,7 +45,7 @@ function formatCurrency(n) { return `₺${Number(n).toLocaleString('tr-TR', { mi
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('tr-TR') : '-'; }
 function generateRandomPassword() { return Math.random().toString(36).slice(-6).toUpperCase(); }
 
-// --- MENÜ VE GÖRÜNÜM YÖNETİMİ ---
+// NAV
 function switchView(id) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(id);
@@ -49,6 +55,7 @@ function switchView(id) {
         if (id === 'view-finance') loadAdminTransactionLedger();
         if (id === 'view-expenses') loadAdminExpensesTable();
         if (id === 'view-apartments') loadApartmentsListPage();
+        if (id === 'view-reports') loadReportsPage(); // Yeni
         if (id === 'user-view-debt') {
             loadUserTransactionLedger(loggedInUsername);
             document.getElementById('userBalanceDetails').classList.remove('show');
@@ -61,7 +68,6 @@ function switchView(id) {
     const btn = document.querySelector(`.nav-item[data-target="${id}"]`);
     if(btn) btn.classList.add('active');
     
-    // Mobil menüyü kapat
     if(window.innerWidth <= 768) {
         document.querySelector('.sidebar').classList.remove('active');
         document.getElementById('sidebarOverlay').classList.remove('active');
@@ -73,35 +79,29 @@ function toggleSidebar() {
     document.getElementById('sidebarOverlay').classList.toggle('active');
 }
 
-// --- GİRİŞ VE OTURUM İŞLEMLERİ ---
+// LOGIN
 async function login() {
     const u = document.getElementById("username").value.trim().toUpperCase();
     const p = document.getElementById("password").value;
     if (!u || !p) return showMessage("loginMessage", "Bilgileri giriniz.", true);
 
-    // Admin Girişi
     if (u === adminCredentials.username?.toUpperCase() && p === adminCredentials.password) {
         currentAdminRole = 'full';
         await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
-        localStorage.setItem('aidatSession', JSON.stringify({ role: 'admin', type: 'full', user: 'admin' }));
         setupPanel('admin');
         return;
     }
-    // Gözlemci Girişi
     if (u === viewerAdminCredentials.username?.toUpperCase() && p === viewerAdminCredentials.password) {
         currentAdminRole = 'viewer';
-        localStorage.setItem('aidatSession', JSON.stringify({ role: 'admin', type: 'viewer', user: 'viewer' }));
         setupPanel('admin');
         return;
     }
     
-    // Kullanıcı Girişi
     try {
         const d = await getDoc(doc(db, "apartments", u));
         if (!d.exists() || d.data().password !== p) return showMessage("loginMessage", "Hatalı giriş.", true);
         loggedInUsername = u;
         await updateDoc(doc(db, "apartments", u), { lastLogin: new Date() });
-        localStorage.setItem('aidatSession', JSON.stringify({ role: 'user', user: u }));
         setupPanel('user');
     } catch (e) { console.error(e); showMessage("loginMessage", "Hata.", true); }
 }
@@ -144,26 +144,6 @@ async function setupPanel(type) {
     }
 }
 
-// --- KULLANICI KAYIT ---
-document.getElementById('saveRegistrationBtn').addEventListener('click', async () => {
-    const tel = document.getElementById('regTelefon').value.trim();
-    const mail = document.getElementById('regMail').value.trim();
-    const adres = document.getElementById('regAdres').value.trim();
-
-    if(!tel || !mail || !adres) return showMessage("registrationMessage", "Lütfen tüm alanları doldurun.", true);
-
-    try {
-        await updateDoc(doc(db, 'apartments', loggedInUsername), {
-            telefon: tel, mail: mail, adres: adres, profileCompleted: true
-        });
-        showMessage("registrationMessage", "Kaydınız oluşturuldu! Yönlendiriliyorsunuz...");
-        setTimeout(() => {
-            document.getElementById('registrationModal').style.display = 'none';
-            setupPanel('user'); 
-        }, 1500);
-    } catch (e) { console.error(e); showMessage("registrationMessage", "Hata oluştu.", true); }
-});
-
 function fillFlatSelects() {
     const s = ["islemDaireSelect", "borcKime", "sifreDaire"];
     s.forEach(id => {
@@ -174,7 +154,203 @@ function fillFlatSelects() {
     });
 }
 
-// --- 1. DASHBOARD ---
+// ----------------------------------------------------
+// *** YENİ RAPORLAMA MODÜLÜ ***
+// ----------------------------------------------------
+
+async function loadReportsPage() {
+    // Fill Report Flat Filter
+    const sel = document.getElementById('reportFlatFilter');
+    if(sel.options.length === 0) {
+        sel.innerHTML = '<option value="all">Tüm Daireler</option>';
+        daireler.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
+    }
+    // Set default dates if empty
+    if(!document.getElementById('reportStartDate').value) {
+        const d = new Date(); d.setMonth(d.getMonth()-1);
+        document.getElementById('reportStartDate').value = d.toISOString().split('T')[0];
+        document.getElementById('reportEndDate').value = todayStr;
+    }
+}
+
+// 1. Fetch All Data (Optimize: Tek seferde tümünü çekip bellekte işle)
+async function fetchAllReportData() {
+    document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">Veriler yükleniyor, lütfen bekleyiniz...</td></tr>';
+    
+    allReportData = [];
+
+    // Giderleri Çek
+    const expSnap = await getDocs(collection(db, 'expenses'));
+    expSnap.forEach(d => {
+        const e = d.data();
+        allReportData.push({
+            date: e.tarih,
+            type: 'expense',
+            typeLabel: 'Gider',
+            owner: 'Site Yönetimi',
+            desc: e.harcamaAdi,
+            amount: Number(e.tutar),
+            sortDate: new Date(e.tarih)
+        });
+    });
+
+    // Daire İşlemlerini Çek (Paralel)
+    const promises = daireler.map(async (d) => {
+        const tSnap = await getDocs(collection(db, 'apartments', d, 'transactions'));
+        tSnap.forEach(t => {
+            const tr = t.data();
+            let typeLabel = 'Bilinmiyor';
+            if (tr.tur === 'borc') {
+                // Aidat vs Demirbaş ayrımı (Açıklamaya göre basit kontrol)
+                if (tr.aciklama.toLowerCase().includes('demirbaş')) typeLabel = 'Demirbaş Borcu';
+                else if (tr.aciklama.toLowerCase().includes('gecikme')) typeLabel = 'Gecikme Tazminatı';
+                else typeLabel = 'Aidat/Borç';
+            } else {
+                typeLabel = 'Tahsilat';
+            }
+            
+            allReportData.push({
+                date: tr.tarih,
+                type: tr.tur === 'borc' ? 'debt' : 'income',
+                typeLabel: typeLabel,
+                owner: d,
+                desc: tr.aciklama,
+                amount: Math.abs(Number(tr.tutar)), // Rapor için pozitif göster
+                sortDate: new Date(tr.tarih)
+            });
+        });
+    });
+
+    await Promise.all(promises);
+    
+    // Tarihe göre sırala (Yeniden eskiye)
+    allReportData.sort((a, b) => b.sortDate - a.sortDate);
+    applyReportFilters();
+}
+
+// 2. Filtrele
+function applyReportFilters() {
+    const sDate = document.getElementById('reportStartDate').value;
+    const eDate = document.getElementById('reportEndDate').value;
+    const type = document.getElementById('reportTypeFilter').value;
+    const flat = document.getElementById('reportFlatFilter').value;
+
+    filteredReportData = allReportData.filter(item => {
+        let pass = true;
+        if(item.date < sDate || item.date > eDate) pass = false;
+        
+        if(pass && type !== 'all') {
+            if(type === 'income' && item.type !== 'income') pass = false;
+            if(type === 'expense' && item.type !== 'expense') pass = false;
+            if(type === 'debt' && item.type !== 'debt') pass = false;
+        }
+
+        if(pass && flat !== 'all') {
+            if(item.owner !== flat) pass = false;
+        }
+        return pass;
+    });
+
+    // Özet Hesapla
+    let tInc = 0, tExp = 0, tDebt = 0;
+    filteredReportData.forEach(i => {
+        if(i.type === 'income') tInc += i.amount;
+        if(i.type === 'expense') tExp += i.amount;
+        if(i.type === 'debt') tDebt += i.amount;
+    });
+    
+    // Sitenin kasası = Tahsilat - Gider
+    const net = tInc - tExp;
+
+    document.getElementById('repTotalInc').textContent = formatCurrency(tInc);
+    document.getElementById('repTotalExp').textContent = formatCurrency(tExp);
+    document.getElementById('repNetBal').textContent = formatCurrency(net);
+
+    currentReportPage = 1;
+    renderReportTable();
+}
+
+// 3. Tabloyu Çiz (Sayfalama)
+function renderReportTable() {
+    const tbody = document.getElementById('reportTableBody');
+    const start = (currentReportPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageData = filteredReportData.slice(start, end);
+    const totalPages = Math.ceil(filteredReportData.length / itemsPerPage);
+
+    document.getElementById('pageIndicator').textContent = `Sayfa ${currentReportPage} / ${totalPages || 1}`;
+    document.getElementById('prevPageBtn').disabled = currentReportPage === 1;
+    document.getElementById('nextPageBtn').disabled = currentReportPage === totalPages || totalPages === 0;
+
+    if(pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Kayıt bulunamadı.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = pageData.map(item => {
+        let color = '#333';
+        if(item.type === 'income') color = '#2b9348';
+        if(item.type === 'expense') color = '#d90429';
+        if(item.type === 'debt') color = '#ffb703'; // Borç tahakkuku sarı/turuncu
+
+        return `<tr>
+            <td data-label="Tarih">${formatDate(item.date)}</td>
+            <td data-label="Tür">${item.typeLabel}</td>
+            <td data-label="Kişi/Yer"><strong>${item.owner}</strong></td>
+            <td data-label="Açıklama">${item.desc}</td>
+            <td data-label="Tutar" style="color:${color}; font-weight:bold;">${formatCurrency(item.amount)}</td>
+        </tr>`;
+    }).join('');
+}
+
+// 4. PDF İndir (Türkçe Karakter Destekli - Autotable)
+function downloadReportPdf() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFont("helvetica", "normal"); // jsPDF'te standart font
+    doc.text("Site Finansal Raporu", 14, 15);
+    
+    // Tarih aralığı bilgisi
+    doc.setFontSize(10);
+    doc.text(`Tarih: ${formatDate(document.getElementById('reportStartDate').value)} - ${formatDate(document.getElementById('reportEndDate').value)}`, 14, 22);
+
+    const rows = filteredReportData.map(item => [
+        formatDate(item.date),
+        item.typeLabel,
+        item.owner,
+        item.desc,
+        formatCurrency(item.amount)
+    ]);
+
+    doc.autoTable({
+        head: [['Tarih', 'Tür', 'İlgili', 'Açıklama', 'Tutar']],
+        body: rows,
+        startY: 30,
+        styles: { font: "helvetica", fontSize: 9 }, // Türkçe karakterler için temel font desteği, karmaşık karakterler bazen sorun olabilir ama autotable iyidir.
+        headStyles: { fillColor: [1, 79, 134] }
+    });
+
+    // Altına Özet Ekle
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.text(`Toplam Gelir: ${document.getElementById('repTotalInc').textContent}`, 14, finalY);
+    doc.text(`Toplam Gider: ${document.getElementById('repTotalExp').textContent}`, 14, finalY + 6);
+    doc.text(`Net Kasa: ${document.getElementById('repNetBal').textContent}`, 14, finalY + 12);
+
+    doc.save('Site_Raporu.pdf');
+}
+
+// Rapor Buton Listenerları
+document.getElementById('applyReportFilterBtn').addEventListener('click', fetchAllReportData);
+document.getElementById('downloadReportPdfBtn').addEventListener('click', downloadReportPdf);
+document.getElementById('prevPageBtn').addEventListener('click', () => { if(currentReportPage > 1) { currentReportPage--; renderReportTable(); }});
+document.getElementById('nextPageBtn').addEventListener('click', () => { if(currentReportPage * itemsPerPage < filteredReportData.length) { currentReportPage++; renderReportTable(); }});
+
+
+// ----------------------------------------------------
+// *** DİĞER FONKSİYONLAR DEVAM EDİYOR ***
+// ----------------------------------------------------
+
 async function updateAdminDashboard() {
     const m = aylar[new Date().getMonth()];
     const y = new Date().getFullYear();
@@ -194,7 +370,6 @@ async function updateAdminDashboard() {
                     if(new Date(t.tarih).getMonth() === new Date().getMonth()) monthInc += Math.abs(Number(t.tutar));
                 }
             }
-            // Son işlemler için veri topla
             const sortDate = t.timestamp ? t.timestamp.toDate() : new Date(t.tarih);
             recentTxns.push({ daire: d, ...t, sortDate: sortDate });
         });
@@ -207,22 +382,16 @@ async function updateAdminDashboard() {
         if(e.tarih_ay === m && e.tarih_yil === y) monthExp += Number(e.tutar);
     });
 
-    // Null check ile elemanların varlığından emin olalım
-    const elTotal = document.getElementById('dashboardTotalBalance');
-    if(elTotal) elTotal.textContent = formatCurrency(income - expense);
-    const elInc = document.getElementById('dashboardMonthlyIncome');
-    if(elInc) elInc.textContent = formatCurrency(monthInc);
-    const elExp = document.getElementById('dashboardMonthlyExpense');
-    if(elExp) elExp.textContent = formatCurrency(monthExp);
-    const elDebt = document.getElementById('dashboardUnpaidCount');
-    if(elDebt) elDebt.textContent = formatCurrency(debt);
+    document.getElementById('dashboardTotalBalance').textContent = formatCurrency(income - expense);
+    document.getElementById('dashboardMonthlyIncome').textContent = formatCurrency(monthInc);
+    document.getElementById('dashboardMonthlyExpense').textContent = formatCurrency(monthExp);
+    document.getElementById('dashboardUnpaidCount').textContent = formatCurrency(debt);
     
     renderRecentTransactions(recentTxns);
 }
 
 function renderRecentTransactions(txns) {
     const tbody = document.getElementById('dashboardRecentTransactions');
-    if(!tbody) return;
     if(!txns || txns.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">İşlem bulunamadı.</td></tr>';
         return;
@@ -244,7 +413,7 @@ function renderRecentTransactions(txns) {
     }).join('');
 }
 
-// --- 2. FİNANS (Admin Listeleme) ---
+// 2. FINANCE
 async function loadAdminTransactionLedger() {
     const daire = document.getElementById("islemDaireSelect").value;
     const list = document.getElementById("adminTransactionList");
@@ -279,7 +448,7 @@ async function loadAdminTransactionLedger() {
     document.getElementById("bakiyeToplam").textContent = `Bakiye: ${formatCurrency(bal)}`;
 }
 
-// --- 3. GİDERLER ---
+// 3. EXPENSES
 function updateExpenseDateDisplay() {
     document.getElementById('expenseCurrentMonthDisplay').textContent = `${aylar[currentExpenseDate.getMonth()]} ${currentExpenseDate.getFullYear()}`;
     loadAdminExpensesTable();
@@ -365,18 +534,20 @@ async function downloadMonthlyExpensesPdf() {
     doc.save(`Gider_${m}_${y}.pdf`);
 }
 
-// --- 4. DAİRELER LİSTESİ (Optimize & Filtre) ---
+// 4. APARTMENTS LIST (OPTIMIZED)
 async function loadApartmentsListPage() {
     const cont = document.getElementById('apartmentListContainer');
     cont.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Daireler Yükleniyor...</div>';
     
     allApartmentsData = [];
     
+    // 1. Fetch all apartment profiles first
     const promises = daireler.map(async (d) => {
         const docRef = doc(db, 'apartments', d);
         const docSnap = await getDoc(docRef);
         const data = docSnap.exists() ? docSnap.data() : {};
         
+        // 2. Fetch transactions for this apartment
         const transRef = collection(db, 'apartments', d, 'transactions');
         const transSnap = await getDocs(transRef);
         
@@ -388,7 +559,9 @@ async function loadApartmentsListPage() {
         return { id: d, ...data, balance: bal };
     });
 
+    // Wait for all to finish (Parallel execution)
     allApartmentsData = await Promise.all(promises);
+    
     renderApartmentList(allApartmentsData);
 }
 
@@ -416,61 +589,29 @@ function renderApartmentList(list) {
     }).join('');
 }
 
-// FİLTRELEME (Türkçe Karakter Destekli)
-document.getElementById('apartmentSearchInput').addEventListener('input', (e) => {
-    const val = e.target.value.toLocaleLowerCase('tr-TR');
-    const filtered = allApartmentsData.filter(d => 
-        d.id.toLocaleLowerCase('tr-TR').includes(val) || 
-        (d.adi && d.adi.toLocaleLowerCase('tr-TR').includes(val)) ||
-        (d.soyadi && d.soyadi.toLocaleLowerCase('tr-TR').includes(val))
-    );
-    renderApartmentList(filtered);
-});
-
-
-// --- KULLANICI FONKSİYONLARI ---
+// USER FUNCTIONS
 async function loadUserTransactionLedger(u) {
     const list = document.getElementById("userTransactionList");
     list.innerHTML = '';
-    // DESC sıralama (En yeni en üstte)
-    const s = await getDocs(query(collection(db, 'apartments', u, 'transactions'), orderBy("tarih", "desc")));
-    
-    // Bakiye hesaplamak için önce eskidem yeniye sıralı işlemek gerek
-    const allTrans = [];
-    s.forEach(doc => allTrans.push(doc.data()));
-    
-    // Tarihe göre artan sırala (Eski -> Yeni)
-    allTrans.sort((a,b) => new Date(a.tarih) - new Date(b.tarih));
-    
-    let runningBal = 0;
-    allTrans.forEach(t => {
-        if(t.tarih <= todayStr) runningBal += Number(t.tutar);
-        t.currentBalance = runningBal;
-    });
-    
-    // Son bakiye
-    const finalBal = runningBal;
-
-    // Göstermek için tekrar azalan sırala (Yeni -> Eski)
-    allTrans.sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
-
-    allTrans.forEach(t => {
+    const s = await getDocs(query(collection(db, 'apartments', u, 'transactions'), orderBy("tarih", "asc")));
+    let bal = 0;
+    s.forEach(doc => {
+        const t = doc.data();
         if(t.tarih > todayStr) return;
-        const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
+        bal += Number(t.tutar);
         list.innerHTML += `<tr>
             <td data-label="Tarih">${formatDate(t.tarih)}</td>
             <td data-label="Açıklama">${t.aciklama}</td>
-            <td data-label="Tutar" style="${style}">${formatCurrency(t.tutar)}</td>
-            <td data-label="Bakiye">${formatCurrency(t.currentBalance)}</td>
+            <td data-label="Tutar" style="${t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348'}">${formatCurrency(t.tutar)}</td>
+            <td data-label="Bakiye">${formatCurrency(bal)}</td>
         </tr>`;
     });
-
-    document.getElementById("userUnpaidTotal").textContent = formatCurrency(finalBal);
+    document.getElementById("userUnpaidTotal").textContent = formatCurrency(bal);
     const totEl = document.getElementById("userDebtTotals");
-    totEl.textContent = `Güncel: ${formatCurrency(finalBal)}`;
+    totEl.textContent = `Güncel: ${formatCurrency(bal)}`;
     
-    if(finalBal < 0) document.getElementById("userUnpaidTotal").style.color = '#2b9348';
-    else if (finalBal > 0) document.getElementById("userUnpaidTotal").style.color = '#d90429';
+    if(bal < 0) document.getElementById("userUnpaidTotal").style.color = '#2b9348';
+    else if (bal > 0) document.getElementById("userUnpaidTotal").style.color = '#d90429';
     else document.getElementById("userUnpaidTotal").style.color = '#333';
 }
 
@@ -524,31 +665,7 @@ async function checkProfileAndExpensesVisibility() {
     else if(isPub) document.getElementById('nav-user-expenses').classList.remove('hidden');
 }
 
-// --- KULLANICI ŞİFRE DEĞİŞTİRME ---
-document.getElementById('changePasswordBtn').addEventListener('click', async () => {
-    const currentPassword = prompt("Mevcut şifrenizi girin:");
-    if (currentPassword === null) return;
-
-    try {
-        const userDoc = await getDoc(doc(db, 'apartments', loggedInUsername));
-        if (!userDoc.exists() || userDoc.data().password !== currentPassword) {
-            return showMessage("profileMessage", "Mevcut şifre hatalı.", true);
-        }
-
-        const newPassword = prompt("Yeni şifrenizi girin (en az 3 karakter):");
-        if (newPassword === null) return;
-        if (newPassword.length < 3) return showMessage("profileMessage", "Yeni şifre en az 3 karakter olmalı.", true);
-        
-        const newPasswordConfirm = prompt("Yeni şifrenizi tekrar girin:");
-        if (newPassword !== newPasswordConfirm) return showMessage("profileMessage", "Şifreler eşleşmiyor.", true);
-
-        await updateDoc(doc(db, 'apartments', loggedInUsername), { password: newPassword });
-        showMessage("profileMessage", "Şifreniz başarıyla değiştirildi.");
-
-    } catch (error) { console.error(error); showMessage("profileMessage", "Hata oluştu.", true); }
-});
-
-// --- İŞLEMLER (BORÇ/TAHSİLAT) ---
+// ACTIONS
 document.getElementById('addDebtBtn').addEventListener('click', async () => {
     const d = document.getElementById("borcKime").value, t = document.getElementById("borcTarih").value, a = document.getElementById("borcAciklama").value, m = Number(document.getElementById("borcTutar").value);
     if (!d || !t || !a || !m) return showMessage("addDebtMessage", "Eksik.", true);
@@ -565,11 +682,10 @@ document.getElementById('addTahsilatBtn').addEventListener('click', async () => 
     showMessage("addTahsilatMessage", "Eklendi."); loadAdminTransactionLedger();
 });
 
-// --- GECİKME TAZMİNATI (DÜZELTİLMİŞ) ---
+// LATE FEE LOGIC
 document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
     const now = new Date();
     const feeName = `${aylar[now.getMonth()]} ${now.getFullYear()} Gecikme Tazminatı`;
-    // İçinde bulunulan ayın ilk günü (Bu tarihten önceki borçlar taranacak)
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
     if(!confirm(`DİKKAT: ${currentMonthStart} tarihinden ÖNCEKİ ana borçlar taranıp %5 gecikme tazminatı eklenecek.\n(Bu ayın aidatları etkilenmeyecek)\n\nOnaylıyor musunuz?`)) return;
@@ -584,19 +700,15 @@ document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
         s.forEach(snap => {
             const t = snap.data();
             if(t.aciklama === feeName) applied = true;
-            
-            // Sadece bu ayın başından önceki borçları topla
             if (t.tarih < currentMonthStart) {
                 if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) {
                     pDebt += Number(t.tutar);
                 }
             }
-            // Tahsilatların tamamını düş
             if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
         });
 
         if(applied) continue;
-        
         const rem = pDebt - tPay;
         if(rem > 0) {
             const fee = parseFloat((rem * 0.05).toFixed(2));
@@ -605,9 +717,8 @@ document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
         }
     }
     if(count>0) { await b.commit(); showMessage("addDebtMessage", `${count} daireye uygulandı.`); }
-    else showMessage("addDebtMessage", "Uygulanacak borç bulunamadı veya zaten uygulanmış.", true);
+    else showMessage("addDebtMessage", "Uygulanacak borç bulunamadı.", true);
 });
-
 
 document.getElementById('saveExpenseBtn').addEventListener('click', async () => {
     const d = document.getElementById("expenseDateInput").value, n = document.getElementById("expenseNameInput").value, a = Number(document.getElementById("expenseAmountInput").value);
@@ -617,21 +728,17 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async () => 
     showMessage("expenseMessage", "Eklendi."); loadAdminExpensesTable();
 });
 
-// --- OLAY DİNLEYİCİLER (LISTENERS) ---
+// LISTENERS
 document.getElementById('loginButton').addEventListener('click', login);
 document.getElementById('loginTerms').addEventListener('change', (e) => document.getElementById('loginButton').disabled = !e.target.checked);
-// Logout - Session Silme
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem('aidatSession');
-    location.reload();
-});
+document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
 document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
 document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
 
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', (e) => switchView(e.currentTarget.dataset.target)));
-document.getElementById('btnTabBorc').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabBorc').classList.add('active'); document.querySelectorAll('.tab-button').forEach(b=>b.classList.remove('active')); document.getElementById('btnTabBorc').classList.add('active'); });
-document.getElementById('btnTabTahsilat').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabTahsilat').classList.add('active'); document.querySelectorAll('.tab-button').forEach(b=>b.classList.remove('active')); document.getElementById('btnTabTahsilat').classList.add('active'); });
-document.getElementById('btnTabEkstre').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabEkstre').classList.add('active'); document.querySelectorAll('.tab-button').forEach(b=>b.classList.remove('active')); document.getElementById('btnTabEkstre').classList.add('active'); loadAdminTransactionLedger(); });
+document.getElementById('btnTabBorc').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabBorc').classList.add('active'); });
+document.getElementById('btnTabTahsilat').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabTahsilat').classList.add('active'); });
+document.getElementById('btnTabEkstre').addEventListener('click', () => { document.querySelectorAll('.tab-content-panel').forEach(e=>e.classList.remove('active')); document.getElementById('contentTabEkstre').classList.add('active'); loadAdminTransactionLedger(); });
 document.getElementById('islemDaireSelect').addEventListener('change', () => { if(document.getElementById('contentTabEkstre').classList.contains('active')) loadAdminTransactionLedger(); });
 document.getElementById('expensePrevMonthBtn').addEventListener('click', () => { currentExpenseDate.setMonth(currentExpenseDate.getMonth()-1); updateExpenseDateDisplay(); });
 document.getElementById('expenseNextMonthBtn').addEventListener('click', () => { currentExpenseDate.setMonth(currentExpenseDate.getMonth()+1); updateExpenseDateDisplay(); });
@@ -669,6 +776,43 @@ document.getElementById('saveViewerAdminPasswordBtn').onclick = async () => {
 document.getElementById('userBalanceCard').addEventListener('click', function() {
     this.classList.toggle('active');
     document.getElementById('userBalanceDetails').classList.toggle('show');
+});
+
+document.getElementById('saveRegistrationBtn').addEventListener('click', async () => {
+    const tel = document.getElementById('regTelefon').value.trim();
+    const mail = document.getElementById('regMail').value.trim();
+    const adres = document.getElementById('regAdres').value.trim();
+
+    if(!tel || !mail || !adres) return showMessage("registrationMessage", "Lütfen tüm alanları doldurun.", true);
+
+    try {
+        await updateDoc(doc(db, 'apartments', loggedInUsername), {
+            telefon: tel, mail: mail, adres: adres, profileCompleted: true
+        });
+        showMessage("registrationMessage", "Kaydınız oluşturuldu! Yönlendiriliyorsunuz...");
+        setTimeout(() => {
+            document.getElementById('registrationModal').style.display = 'none';
+            setupPanel('user'); 
+        }, 1500);
+    } catch (e) { console.error(e); showMessage("registrationMessage", "Hata oluştu.", true); }
+});
+
+document.getElementById('changePasswordBtn').addEventListener('click', async () => {
+    const currentPassword = prompt("Mevcut şifrenizi girin:");
+    if (currentPassword === null) return;
+    try {
+        const userDoc = await getDoc(doc(db, 'apartments', loggedInUsername));
+        if (!userDoc.exists() || userDoc.data().password !== currentPassword) {
+            return showMessage("profileMessage", "Mevcut şifre hatalı.", true);
+        }
+        const newPassword = prompt("Yeni şifrenizi girin (en az 3 karakter):");
+        if (newPassword === null) return;
+        if (newPassword.length < 3) return showMessage("profileMessage", "Yeni şifre en az 3 karakter olmalı.", true);
+        const newPasswordConfirm = prompt("Yeni şifrenizi tekrar girin:");
+        if (newPassword !== newPasswordConfirm) return showMessage("profileMessage", "Şifreler eşleşmiyor.", true);
+        await updateDoc(doc(db, 'apartments', loggedInUsername), { password: newPassword });
+        showMessage("profileMessage", "Şifreniz başarıyla değiştirildi.");
+    } catch (error) { console.error(error); showMessage("profileMessage", "Hata oluştu.", true); }
 });
 
 // WINDOW EXPORTS
@@ -730,7 +874,7 @@ window.downloadAccountStatementPdf = async function(daireId) {
     pdf.save(`${daireId}_Ekstre.pdf`);
 }
 
-// --- BAŞLATMA VE OTURUM KONTROLÜ ---
+// INIT
 async function init() {
     try {
         await enableNetwork(db); 
@@ -748,8 +892,8 @@ async function init() {
             if(!s.exists()) { b.set(r, {password: generateRandomPassword()}, {merge:true}); c++; }
         }
         if(c>0) await b.commit();
-
-        // Session Kontrolü
+        
+        // Session Check
         const session = localStorage.getItem('aidatSession');
         if(session) {
             const s = JSON.parse(session);
@@ -761,7 +905,6 @@ async function init() {
                 setupPanel('user');
             }
         }
-
     } catch (e) { console.error("Init Error:", e); }
 }
 init();
