@@ -146,3 +146,10 @@ body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); co
     .mobile-responsive-table td { text-align: right; padding-left: 50%; position: relative; border-bottom: 1px solid #f9f9f9; }
     .mobile-responsive-table td::before { content: attr(data-label); position: absolute; left: 10px; font-weight: 600; color: #666; }
 }
+/* RAPORLAMA STİLLERİ (YENİ) */
+.filter-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
+.filter-item { flex: 1; min-width: 200px; }
+.filter-item label { display: block; font-size: 0.85em; font-weight: 600; margin-bottom: 5px; color: #555; }
+.filter-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.report-summary-bar { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; border: 1px solid #eee; }
+.pagination-container { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
