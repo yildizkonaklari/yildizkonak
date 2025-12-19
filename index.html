@@ -59,6 +59,8 @@
                     <button class="nav-item" id="nav-finance" data-target="view-finance"><span class="icon">💳</span> Finans & İşlemler</button>
                     <button class="nav-item" data-target="view-expenses"><span class="icon">🧾</span> Gider Yönetimi</button>
                     <button class="nav-item" data-target="view-apartments"><span class="icon">🏢</span> Daire Listesi</button>
+                    <button class="nav-item" data-target="view-reports"><span class="icon">📈</span> Raporlar</button>
+
                     <button class="nav-item" id="nav-settings" data-target="view-settings"><span class="icon">⚙️</span> Ayarlar</button>
                 </div>
                 <div id="user-menu-items" class="hidden">
@@ -108,7 +110,76 @@
                 </div>
                 <div style="text-align: right; margin-top:10px;"><button id="refreshDataBtn" class="btn btn-secondary btn-sm">⟳ Verileri Yenile</button></div>
             </div>
+<!-- 2. YENİ RAPORLAR SAYFASI -->
+            <div id="view-reports" class="view-section hidden">
+                <h2 class="page-title">Detaylı Finansal Raporlar</h2>
+                
+                <!-- Filtreleme Alanı -->
+                <div class="card filter-card">
+                    <h4 style="margin-top:0; font-size:1em; color:#666;">Filtreleme Seçenekleri</h4>
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label>Başlangıç Tarihi:</label>
+                            <input type="date" id="reportStartDate" class="form-control">
+                        </div>
+                        <div class="filter-item">
+                            <label>Bitiş Tarihi:</label>
+                            <input type="date" id="reportEndDate" class="form-control">
+                        </div>
+                        <div class="filter-item">
+                            <label>İşlem Türü:</label>
+                            <select id="reportTypeFilter" class="form-control">
+                                <option value="all">Tümü (Gelir/Gider/Borç)</option>
+                                <option value="income">Sadece Tahsilatlar</option>
+                                <option value="expense">Sadece Giderler</option>
+                                <option value="debt">Sadece Borç Tahakkukları</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Daire:</label>
+                            <select id="reportFlatFilter" class="form-control">
+                                <!-- JS ile dolacak -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <button id="applyReportFilterBtn" class="btn btn-primary">Raporu Getir</button>
+                        <button id="downloadReportPdfBtn" class="btn btn-secondary">PDF Olarak İndir</button>
+                    </div>
+                </div>
 
+                <!-- Rapor Sonuç Tablosu -->
+                <div class="card">
+                    <div class="report-summary-bar">
+                        <span>Toplam Gelir: <strong id="repTotalInc" class="text-success">0 ₺</strong></span>
+                        <span>Toplam Gider: <strong id="repTotalExp" class="text-danger">0 ₺</strong></span>
+                        <span>Net Bakiye: <strong id="repNetBal" class="text-primary">0 ₺</strong></span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="transaction-table mobile-responsive-table" id="reportTable">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Tür</th>
+                                    <th>İlgili Kişi/Yer</th>
+                                    <th>Açıklama</th>
+                                    <th>Tutar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTableBody">
+                                <tr><td colspan="5" style="text-align:center;">Filtreleri seçip 'Raporu Getir' butonuna basınız.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Sayfalama (Pagination) -->
+                    <div class="pagination-container">
+                        <button id="prevPageBtn" class="btn btn-sm btn-outline" disabled>« Önceki</button>
+                        <span id="pageIndicator">Sayfa 1 / 1</span>
+                        <button id="nextPageBtn" class="btn btn-sm btn-outline" disabled>Sonraki »</button>
+                    </div>
+                </div>
+            </div>
             <!-- YÖNETİCİ: FİNANS -->
             <div id="view-finance" class="view-section hidden">
                 <h2 class="page-title">Finansal İşlemler</h2>
