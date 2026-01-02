@@ -589,7 +589,41 @@ window.changeAdminLedgerPage = (delta) => {
     adminLedgerPage += delta;
     renderAdminLedgerTable();
 }
-
+async function loadUserExpensesTable() {
+    const list = document.getElementById("userExpenseList");
+    const ps = await getDoc(doc(db, 'settings', 'publishedExpenses'));
+    const pd = ps.exists() ? ps.data() : { published: false };
+    
+    if(!pd.published) {
+        document.getElementById("expenseTableContainer").classList.add('hidden');
+        document.getElementById("expenseNotPublishedMessage").classList.remove('hidden');
+        return;
+    }
+    document.getElementById("expenseTableContainer").classList.remove('hidden');
+    document.getElementById("expenseNotPublishedMessage").classList.add('hidden');
+    
+    list.innerHTML = `<h4 style="color:#014f86; margin-bottom:15px;">${pd.month} ${pd.year} Dönemi Giderleri</h4>`;
+    
+    const q = query(collection(db, 'expenses'), where("tarih_ay", "==", pd.month), where("tarih_yil", "==", Number(pd.year)));
+    const s = await getDocs(q);
+    let tot = 0;
+    
+    if(s.empty) {
+        list.innerHTML += '<p style="text-align:center; color:#666;">Bu dönem için kayıtlı gider bulunamadı.</p>';
+    } else {
+        s.forEach(d => {
+            const e = d.data();
+            tot += Number(e.tutar);
+            list.innerHTML += `<div class="admin-expense-card">
+                <div class="admin-expense-card-content">
+                    <div class="admin-expense-card-info"><span class="description">${e.harcamaAdi}</span><span class="date">${formatDate(e.tarih)}</span></div>
+                    <div class="admin-expense-card-details"><span class="amount">${formatCurrency(e.tutar)}</span></div>
+                </div>
+            </div>`;
+        });
+    }
+    document.getElementById("userExpenseTotals").textContent = `Toplam Gider: ${formatCurrency(tot)}`;
+}
 
 // 3. EXPENSES
 function updateExpenseDateDisplay() {
