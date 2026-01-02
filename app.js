@@ -21,16 +21,28 @@ let currentAdminRole = null;
 const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 let currentExpenseDate = new Date();
 let allApartmentsData = [];
-const todayStr = new Date().toISOString().split('T')[0];
+
+// YEREL TARİH HESAPLAMA
+const today = new Date();
+const year = today.getFullYear();
+const month = String(today.getMonth() + 1).padStart(2, '0');
+const day = String(today.getDate()).padStart(2, '0');
+const todayStr = `${year}-${month}-${day}`; 
 
 const daireler = [];
 ["A", "B", "C", "D", "E", "F", "G"].forEach(blok => { for (let i = 1; i <= 8; i++) daireler.push(`${blok}${i}`); });
 
-// Rapor Değişkenleri
+// Değişkenler
 let allReportData = [];
 let filteredReportData = [];
 let currentReportPage = 1;
 const itemsPerPage = 20;
+
+let adminLedgerData = [];
+let adminLedgerPage = 1;
+let userLedgerData = [];
+let userLedgerPage = 1;
+const LEDGER_ITEMS_PER_PAGE = 15;
 
 // HELPER
 function showMessage(id, msg, isError = false) {
@@ -45,6 +57,32 @@ function formatCurrency(n) { return `₺${Number(n).toLocaleString('tr-TR', { mi
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('tr-TR') : '-'; }
 function generateRandomPassword() { return Math.random().toString(36).slice(-6).toUpperCase(); }
 
+// --- GÜVENLİ SIRALAMA FONKSİYONLARI (DÜZELTME) ---
+// Tarih aynıysa Timestamp'e bakar, o da yoksa 0 döner.
+const getSortValue = (t) => {
+    const dateVal = new Date(t.tarih).getTime();
+    // Timestamp varsa milisaniyesini al, yoksa 0
+    const timeVal = t.timestamp && t.timestamp.toDate ? t.timestamp.toDate().getTime() : 0;
+    return { dateVal, timeVal };
+};
+
+// Eskiden Yeniye (Hesaplama İçin)
+const sortAsc = (a, b) => {
+    const vA = getSortValue(a);
+    const vB = getSortValue(b);
+    if (vA.dateVal !== vB.dateVal) return vA.dateVal - vB.dateVal;
+    return vA.timeVal - vB.timeVal;
+};
+
+// Yeniden Eskiye (Gösterim İçin)
+const sortDesc = (a, b) => {
+    const vA = getSortValue(a);
+    const vB = getSortValue(b);
+    if (vB.dateVal !== vA.dateVal) return vB.dateVal - vA.dateVal;
+    return vB.timeVal - vA.timeVal;
+};
+
+
 // NAV
 function switchView(id) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
@@ -55,7 +93,7 @@ function switchView(id) {
         if (id === 'view-finance') loadAdminTransactionLedger();
         if (id === 'view-expenses') loadAdminExpensesTable();
         if (id === 'view-apartments') loadApartmentsListPage();
-        if (id === 'view-reports') loadReportsPage(); // Yeni
+        if (id === 'view-reports') loadReportsPage();
         if (id === 'user-view-debt') {
             loadUserTransactionLedger(loggedInUsername);
             document.getElementById('userBalanceDetails').classList.remove('show');
@@ -88,11 +126,13 @@ async function login() {
     if (u === adminCredentials.username?.toUpperCase() && p === adminCredentials.password) {
         currentAdminRole = 'full';
         await updateDoc(doc(db, "admin", "credentials"), { lastLogin: new Date() });
+        sessionStorage.setItem('aidatSession', JSON.stringify({ role: 'admin', type: 'full', user: 'admin' }));
         setupPanel('admin');
         return;
     }
     if (u === viewerAdminCredentials.username?.toUpperCase() && p === viewerAdminCredentials.password) {
         currentAdminRole = 'viewer';
+        sessionStorage.setItem('aidatSession', JSON.stringify({ role: 'admin', type: 'viewer', user: 'viewer' }));
         setupPanel('admin');
         return;
     }
@@ -102,6 +142,7 @@ async function login() {
         if (!d.exists() || d.data().password !== p) return showMessage("loginMessage", "Hatalı giriş.", true);
         loggedInUsername = u;
         await updateDoc(doc(db, "apartments", u), { lastLogin: new Date() });
+        sessionStorage.setItem('aidatSession', JSON.stringify({ role: 'user', user: u }));
         setupPanel('user');
     } catch (e) { console.error(e); showMessage("loginMessage", "Hata.", true); }
 }
@@ -155,9 +196,8 @@ function fillFlatSelects() {
 }
 
 // ----------------------------------------------------
-// *** YENİ RAPORLAMA MODÜLÜ ***
+// *** RAPORLAMA ***
 // ----------------------------------------------------
-
 async function loadReportsPage() {
     const sel = document.getElementById('reportFlatFilter');
     if(sel.options.length === 0) {
@@ -171,7 +211,6 @@ async function loadReportsPage() {
     }
 }
 
-// GÜNCELLENDİ: Borçlu Raporu Desteği
 document.getElementById('applyReportFilterBtn').addEventListener('click', async () => {
     const type = document.getElementById('reportTypeFilter').value;
     if(type === 'debtors') {
@@ -181,7 +220,6 @@ document.getElementById('applyReportFilterBtn').addEventListener('click', async 
     }
 });
 
-// YENİ: Borçlu Listesi (Bakiyeli)
 async function fetchDebtorsReport() {
     document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">Borçlu listesi hazırlanıyor...</td></tr>';
     
@@ -215,7 +253,6 @@ async function fetchDebtorsReport() {
     filteredReportData = results.filter(r => r !== null);
     filteredReportData.sort((a,b) => b.amount - a.amount);
 
-    // Özet Güncelle
     let totalReceivable = 0;
     filteredReportData.forEach(i => totalReceivable += i.amount);
     
@@ -229,10 +266,8 @@ async function fetchDebtorsReport() {
 
 async function fetchAllReportData() {
     document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">Veriler yükleniyor, lütfen bekleyiniz...</td></tr>';
-    
     allReportData = [];
 
-    // Giderleri Çek
     const expSnap = await getDocs(collection(db, 'expenses'));
     expSnap.forEach(d => {
         const e = d.data();
@@ -243,15 +278,17 @@ async function fetchAllReportData() {
             owner: 'Site Yönetimi',
             desc: e.harcamaAdi,
             amount: Number(e.tutar),
-            sortDate: new Date(e.tarih)
+            sortDate: new Date(e.tarih),
+            timestamp: e.timestamp
         });
     });
 
-    // Daire İşlemlerini Çek
     const promises = daireler.map(async (d) => {
         const tSnap = await getDocs(collection(db, 'apartments', d, 'transactions'));
         tSnap.forEach(t => {
             const tr = t.data();
+            if(tr.tarih > todayStr) return;
+
             let typeLabel = 'Bilinmiyor';
             if (tr.tur === 'borc') {
                 if (tr.aciklama.toLowerCase().includes('demirbaş')) typeLabel = 'Demirbaş Borcu';
@@ -268,14 +305,16 @@ async function fetchAllReportData() {
                 owner: d,
                 desc: tr.aciklama,
                 amount: Math.abs(Number(tr.tutar)),
-                sortDate: new Date(tr.tarih)
+                sortDate: new Date(tr.tarih),
+                timestamp: tr.timestamp
             });
         });
     });
 
     await Promise.all(promises);
     
-    allReportData.sort((a, b) => b.sortDate - a.sortDate);
+    // Sort using helper
+    allReportData.sort(sortDesc);
     applyReportFilters();
 }
 
@@ -301,7 +340,6 @@ function applyReportFilters() {
         return pass;
     });
 
-    // Özet Hesapla
     let tInc = 0, tExp = 0;
     filteredReportData.forEach(i => {
         if(i.type === 'income') tInc += i.amount;
@@ -339,7 +377,7 @@ function renderReportTable() {
         if(item.type === 'income') color = '#2b9348';
         if(item.type === 'expense') color = '#d90429';
         if(item.type === 'debt') color = '#ffb703';
-        if(item.type === 'debtor') color = '#d90429'; // Borçlular kırmızı
+        if(item.type === 'debtor') color = '#d90429';
 
         return `<tr>
             <td data-label="Tarih">${formatDate(item.date)}</td>
@@ -377,7 +415,6 @@ function downloadReportPdf() {
     });
 
     const finalY = doc.lastAutoTable.finalY + 10;
-    // Sadece borçlu raporu değilse özeti yaz
     if(document.getElementById('reportTypeFilter').value !== 'debtors') {
         doc.text(`Toplam Gelir: ${document.getElementById('repTotalInc').textContent}`, 14, finalY);
         doc.text(`Toplam Gider: ${document.getElementById('repTotalExp').textContent}`, 14, finalY + 6);
@@ -389,15 +426,11 @@ function downloadReportPdf() {
     doc.save('Site_Raporu.pdf');
 }
 
-// Buton Listenerları
 document.getElementById('downloadReportPdfBtn').addEventListener('click', downloadReportPdf);
 document.getElementById('prevPageBtn').addEventListener('click', () => { if(currentReportPage > 1) { currentReportPage--; renderReportTable(); }});
 document.getElementById('nextPageBtn').addEventListener('click', () => { if(currentReportPage * itemsPerPage < filteredReportData.length) { currentReportPage++; renderReportTable(); }});
 
-// ----------------------------------------------------
-// *** DİĞER FONKSİYONLAR DEVAM EDİYOR ***
-// ----------------------------------------------------
-
+// --- 1. DASHBOARD ---
 async function updateAdminDashboard() {
     const m = aylar[new Date().getMonth()];
     const y = new Date().getFullYear();
@@ -416,9 +449,9 @@ async function updateAdminDashboard() {
                     income += Math.abs(Number(t.tutar));
                     if(new Date(t.tarih).getMonth() === new Date().getMonth()) monthInc += Math.abs(Number(t.tutar));
                 }
+                
+                recentTxns.push({ daire: d, ...t });
             }
-            const sortDate = t.timestamp ? t.timestamp.toDate() : new Date(t.tarih);
-            recentTxns.push({ daire: d, ...t, sortDate: sortDate });
         });
         if(bal > 0) debt += bal;
     }
@@ -429,21 +462,27 @@ async function updateAdminDashboard() {
         if(e.tarih_ay === m && e.tarih_yil === y) monthExp += Number(e.tutar);
     });
 
-    document.getElementById('dashboardTotalBalance').textContent = formatCurrency(income - expense);
-    document.getElementById('dashboardMonthlyIncome').textContent = formatCurrency(monthInc);
-    document.getElementById('dashboardMonthlyExpense').textContent = formatCurrency(monthExp);
-    document.getElementById('dashboardUnpaidCount').textContent = formatCurrency(debt);
+    const elTotal = document.getElementById('dashboardTotalBalance');
+    if(elTotal) elTotal.textContent = formatCurrency(income - expense);
+    const elInc = document.getElementById('dashboardMonthlyIncome');
+    if(elInc) elInc.textContent = formatCurrency(monthInc);
+    const elExp = document.getElementById('dashboardMonthlyExpense');
+    if(elExp) elExp.textContent = formatCurrency(monthExp);
+    const elDebt = document.getElementById('dashboardUnpaidCount');
+    if(elDebt) elDebt.textContent = formatCurrency(debt);
     
+    // Sort recent using robust sort
+    recentTxns.sort(sortDesc);
     renderRecentTransactions(recentTxns);
 }
 
 function renderRecentTransactions(txns) {
     const tbody = document.getElementById('dashboardRecentTransactions');
+    if(!tbody) return;
     if(!txns || txns.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">İşlem bulunamadı.</td></tr>';
         return;
     }
-    txns.sort((a, b) => b.sortDate - a.sortDate);
     const top10 = txns.slice(0, 10);
 
     tbody.innerHTML = top10.map(t => {
@@ -460,7 +499,7 @@ function renderRecentTransactions(txns) {
     }).join('');
 }
 
-// 2. FINANCE
+// 2. FİNANS (SAYFALAMALI VE FİLTRELİ)
 async function loadAdminTransactionLedger() {
     const daire = document.getElementById("islemDaireSelect").value;
     const list = document.getElementById("adminTransactionList");
@@ -475,25 +514,82 @@ async function loadAdminTransactionLedger() {
 
     const q = query(collection(db, 'apartments', daire, 'transactions'), orderBy("tarih", "asc"));
     const s = await getDocs(q);
-    let bal = 0;
     
+    const allTrans = [];
     s.forEach(doc => {
         const t = doc.data();
-        if(t.tarih > todayStr) return;
-        bal += Number(t.tutar);
-        const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
-        const btns = currentAdminRole === 'full' ? `<button class="btn btn-danger btn-sm" onclick="delTrans('${daire}','${doc.id}')">Sil</button>` : '';
-        
-        list.innerHTML += `<tr>
-            <td data-label="Tarih">${formatDate(t.tarih)}</td>
-            <td data-label="Açıklama">${t.aciklama}</td>
-            <td data-label="Tutar" style="${style}">${formatCurrency(t.tutar)}</td>
-            <td data-label="Bakiye">${formatCurrency(bal)}</td>
-            <td class="admin-only" data-label="İşlem">${btns}</td>
-        </tr>`;
+        if(t.tarih <= todayStr) {
+            allTrans.push({ id: doc.id, ...t });
+        }
     });
-    document.getElementById("bakiyeToplam").textContent = `Bakiye: ${formatCurrency(bal)}`;
+    
+    // 1. Bakiyeyi Hesapla (Eskiden -> Yeniye)
+    // Timestamp destekli sıralama
+    allTrans.sort(sortAsc);
+    
+    let bal = 0;
+    allTrans.forEach(t => {
+        bal += Number(t.tutar);
+        t.currentBalance = bal;
+    });
+
+    // 2. Görüntülemek için Ters Çevir (Yeniden -> Eskiye)
+    allTrans.sort(sortDesc);
+    
+    adminLedgerData = allTrans;
+    adminLedgerPage = 1;
+    
+    renderAdminLedgerTable();
 }
+
+function renderAdminLedgerTable() {
+    const list = document.getElementById("adminTransactionList");
+    list.innerHTML = '';
+    
+    const daireId = document.getElementById("islemDaireSelect").value;
+
+    const start = (adminLedgerPage - 1) * LEDGER_ITEMS_PER_PAGE;
+    const end = start + LEDGER_ITEMS_PER_PAGE;
+    const pageData = adminLedgerData.slice(start, end);
+    const totalPages = Math.ceil(adminLedgerData.length / LEDGER_ITEMS_PER_PAGE);
+
+    const pagContainer = document.getElementById("adminLedgerPagination");
+    pagContainer.style.display = totalPages > 1 ? 'flex' : 'none';
+    pagContainer.innerHTML = `
+        <button class="btn btn-sm btn-outline" ${adminLedgerPage === 1 ? 'disabled' : ''} onclick="changeAdminLedgerPage(-1)">«</button>
+        <span>Sayfa ${adminLedgerPage} / ${totalPages}</span>
+        <button class="btn btn-sm btn-outline" ${adminLedgerPage === totalPages ? 'disabled' : ''} onclick="changeAdminLedgerPage(1)">»</button>
+    `;
+
+    if(pageData.length === 0) {
+        list.innerHTML = '<tr><td colspan="5" style="text-align:center">Kayıt yok.</td></tr>';
+    } else {
+        pageData.forEach(t => {
+             const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
+             const deleteBtn = currentAdminRole === 'full' ? 
+                `<button class="btn btn-danger btn-sm" onclick="delTrans('${daireId}', '${t.id}')">Sil</button>` : 
+                '-';
+
+             list.innerHTML += `<tr>
+                <td data-label="Tarih">${formatDate(t.tarih)}</td>
+                <td data-label="Açıklama">${t.aciklama}</td>
+                <td data-label="Tutar" style="${style}">${formatCurrency(t.tutar)}</td>
+                <td data-label="Bakiye">${formatCurrency(t.currentBalance)}</td>
+                <td class="admin-only" data-label="İşlem">${deleteBtn}</td> 
+            </tr>`;
+        });
+    }
+    
+    // Son bakiye en üstteki kaydın bakiyesidir
+    const finalBal = adminLedgerData.length > 0 ? adminLedgerData[0].currentBalance : 0;
+    document.getElementById("bakiyeToplam").textContent = `Güncel Bakiye: ${formatCurrency(finalBal)}`;
+}
+
+window.changeAdminLedgerPage = (delta) => {
+    adminLedgerPage += delta;
+    renderAdminLedgerTable();
+}
+
 
 // 3. EXPENSES
 function updateExpenseDateDisplay() {
@@ -581,34 +677,30 @@ async function downloadMonthlyExpensesPdf() {
     doc.save(`Gider_${m}_${y}.pdf`);
 }
 
-// 4. APARTMENTS LIST (OPTIMIZED)
+// 4. APARTMENTS LIST
 async function loadApartmentsListPage() {
     const cont = document.getElementById('apartmentListContainer');
     cont.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Daireler Yükleniyor...</div>';
     
     allApartmentsData = [];
     
-    // 1. Fetch all apartment profiles first
     const promises = daireler.map(async (d) => {
         const docRef = doc(db, 'apartments', d);
         const docSnap = await getDoc(docRef);
         const data = docSnap.exists() ? docSnap.data() : {};
         
-        // 2. Fetch transactions for this apartment
         const transRef = collection(db, 'apartments', d, 'transactions');
         const transSnap = await getDocs(transRef);
         
         let bal = 0;
         transSnap.forEach(t => {
-            if(t.data().tarih <= todayStr) bal += Number(t.data().tutar);
+             if(t.data().tarih <= todayStr) bal += Number(t.data().tutar);
         });
         
         return { id: d, ...data, balance: bal };
     });
 
-    // Wait for all to finish (Parallel execution)
     allApartmentsData = await Promise.all(promises);
-    
     renderApartmentList(allApartmentsData);
 }
 
@@ -636,30 +728,82 @@ function renderApartmentList(list) {
     }).join('');
 }
 
-// USER FUNCTIONS
+// KULLANICI FONKSİYONLARI (FİLTRELİ VE SAYFALAMALI)
 async function loadUserTransactionLedger(u) {
     const list = document.getElementById("userTransactionList");
     list.innerHTML = '';
     const s = await getDocs(query(collection(db, 'apartments', u, 'transactions'), orderBy("tarih", "asc")));
-    let bal = 0;
+    
+    const allTrans = [];
     s.forEach(doc => {
         const t = doc.data();
-        if(t.tarih > todayStr) return;
-        bal += Number(t.tutar);
-        list.innerHTML += `<tr>
-            <td data-label="Tarih">${formatDate(t.tarih)}</td>
-            <td data-label="Açıklama">${t.aciklama}</td>
-            <td data-label="Tutar" style="${t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348'}">${formatCurrency(t.tutar)}</td>
-            <td data-label="Bakiye">${formatCurrency(bal)}</td>
-        </tr>`;
+        if(t.tarih <= todayStr) {
+            allTrans.push(t);
+        }
     });
-    document.getElementById("userUnpaidTotal").textContent = formatCurrency(bal);
-    const totEl = document.getElementById("userDebtTotals");
-    totEl.textContent = `Güncel: ${formatCurrency(bal)}`;
     
-    if(bal < 0) document.getElementById("userUnpaidTotal").style.color = '#2b9348';
-    else if (bal > 0) document.getElementById("userUnpaidTotal").style.color = '#d90429';
+    // 1. Calculate Balance (Old -> New)
+    allTrans.sort(sortAsc);
+    
+    let bal = 0;
+    allTrans.forEach(t => {
+        bal += Number(t.tutar);
+        t.currentBalance = bal;
+    });
+
+    // 2. Reverse for Display (New -> Old)
+    allTrans.sort(sortDesc);
+
+    userLedgerData = allTrans;
+    userLedgerPage = 1;
+
+    renderUserLedgerTable();
+}
+
+function renderUserLedgerTable() {
+    const list = document.getElementById("userTransactionList");
+    list.innerHTML = '';
+    
+    const start = (userLedgerPage - 1) * LEDGER_ITEMS_PER_PAGE;
+    const end = start + LEDGER_ITEMS_PER_PAGE;
+    const pageData = userLedgerData.slice(start, end);
+    const totalPages = Math.ceil(userLedgerData.length / LEDGER_ITEMS_PER_PAGE);
+    
+    const pagContainer = document.getElementById("userLedgerPagination");
+    pagContainer.style.display = totalPages > 1 ? 'flex' : 'none';
+    pagContainer.innerHTML = `
+        <button class="btn btn-sm btn-outline" ${userLedgerPage === 1 ? 'disabled' : ''} onclick="changeUserLedgerPage(-1)">«</button>
+        <span>Sayfa ${userLedgerPage} / ${totalPages}</span>
+        <button class="btn btn-sm btn-outline" ${userLedgerPage === totalPages ? 'disabled' : ''} onclick="changeUserLedgerPage(1)">»</button>
+    `;
+
+    if(pageData.length === 0) {
+        list.innerHTML = '<tr><td colspan="4">Kayıt yok.</td></tr>';
+    } else {
+        pageData.forEach(t => {
+            const style = t.tur === 'borc' ? 'color:#d90429' : 'color:#2b9348';
+            list.innerHTML += `<tr>
+                <td data-label="Tarih">${formatDate(t.tarih)}</td>
+                <td data-label="Açıklama">${t.aciklama}</td>
+                <td data-label="Tutar" style="${style}">${formatCurrency(t.tutar)}</td>
+                <td data-label="Bakiye">${formatCurrency(t.currentBalance)}</td>
+            </tr>`;
+        });
+    }
+
+    const finalBal = userLedgerData.length > 0 ? userLedgerData[0].currentBalance : 0;
+    document.getElementById("userUnpaidTotal").textContent = formatCurrency(finalBal);
+    const totEl = document.getElementById("userDebtTotals");
+    totEl.textContent = `Güncel: ${formatCurrency(finalBal)}`;
+    
+    if(finalBal < 0) document.getElementById("userUnpaidTotal").style.color = '#2b9348';
+    else if (finalBal > 0) document.getElementById("userUnpaidTotal").style.color = '#d90429';
     else document.getElementById("userUnpaidTotal").style.color = '#333';
+}
+
+window.changeUserLedgerPage = (delta) => {
+    userLedgerPage += delta;
+    renderUserLedgerTable();
 }
 
 async function loadUserProfile() {
@@ -675,33 +819,6 @@ async function loadUserProfile() {
     }
 }
 
-async function loadUserExpensesTable() {
-    const list = document.getElementById("userExpenseList");
-    const ps = await getDoc(doc(db, 'settings', 'publishedExpenses'));
-    const pd = ps.exists() ? ps.data() : { published: false };
-    
-    if(!pd.published) {
-        document.getElementById("expenseTableContainer").classList.add('hidden');
-        document.getElementById("expenseNotPublishedMessage").classList.remove('hidden');
-        return;
-    }
-    document.getElementById("expenseTableContainer").classList.remove('hidden');
-    document.getElementById("expenseNotPublishedMessage").classList.add('hidden');
-    
-    list.innerHTML = `<h4>${pd.month} ${pd.year} Giderleri</h4>`;
-    const s = await getDocs(query(collection(db, 'expenses'), where("tarih_ay", "==", pd.month), where("tarih_yil", "==", Number(pd.year))));
-    let tot = 0;
-    s.forEach(d => {
-        const e = d.data();
-        tot += Number(e.tutar);
-        list.innerHTML += `<div class="admin-expense-card"><div class="admin-expense-card-content">
-            <div class="admin-expense-card-info"><span class="description">${e.harcamaAdi}</span><span class="date">${formatDate(e.tarih)}</span></div>
-            <div class="admin-expense-card-details"><span class="amount">${formatCurrency(e.tutar)}</span></div>
-        </div></div>`;
-    });
-    document.getElementById("userExpenseTotals").textContent = `Toplam: ${formatCurrency(tot)}`;
-}
-
 async function checkProfileAndExpensesVisibility() {
     const u = await getDoc(doc(db, 'apartments', loggedInUsername));
     const p = await getDoc(doc(db, 'settings', 'publishedExpenses'));
@@ -712,14 +829,44 @@ async function checkProfileAndExpensesVisibility() {
     else if(isPub) document.getElementById('nav-user-expenses').classList.remove('hidden');
 }
 
-// ACTIONS
+// BORÇ EKLEME
 document.getElementById('addDebtBtn').addEventListener('click', async () => {
-    const d = document.getElementById("borcKime").value, t = document.getElementById("borcTarih").value, a = document.getElementById("borcAciklama").value, m = Number(document.getElementById("borcTutar").value);
+    const d = document.getElementById("borcKime").value;
+    const t = document.getElementById("borcTarih").value;
+    const a = document.getElementById("borcAciklama").value;
+    const m = Number(document.getElementById("borcTutar").value);
+    const repeat = Number(document.getElementById("debtRepeatCount").value) || 1;
+
     if (!d || !t || !a || !m) return showMessage("addDebtMessage", "Eksik.", true);
+
     const ts = (d === "all_apartments") ? daireler : [d];
     const b = writeBatch(db);
-    ts.forEach(x => b.set(doc(collection(db, 'apartments', x, 'transactions')), { tarih:t, tur:'borc', aciklama:a, tutar:m, timestamp: new Date() }));
-    await b.commit(); showMessage("addDebtMessage", "Eklendi."); loadAdminTransactionLedger();
+    
+    let startDate = new Date(t);
+
+    for(let i=0; i<repeat; i++) {
+        let currentDate = new Date(startDate);
+        currentDate.setMonth(startDate.getMonth() + i);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        const displayDate = currentDate.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+        const desc = repeat > 1 ? `${a} - ${displayDate}` : a;
+
+        ts.forEach(x => {
+            const ref = doc(collection(db, 'apartments', x, 'transactions'));
+            b.set(ref, { 
+                tarih: dateStr, 
+                tur: 'borc', 
+                aciklama: desc, 
+                tutar: m, 
+                timestamp: new Date() 
+            });
+        });
+    }
+
+    await b.commit(); 
+    showMessage("addDebtMessage", `${repeat} aylık borç eklendi.`); 
+    loadAdminTransactionLedger();
 });
 
 document.getElementById('addTahsilatBtn').addEventListener('click', async () => {
@@ -746,13 +893,15 @@ document.getElementById('addLateFeeBtn').addEventListener('click', async () => {
 
         s.forEach(snap => {
             const t = snap.data();
-            if(t.aciklama === feeName) applied = true;
-            if (t.tarih < currentMonthStart) {
-                if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) {
-                    pDebt += Number(t.tutar);
+            if(t.tarih <= todayStr) {
+                if(t.aciklama === feeName) applied = true;
+                if (t.tarih < currentMonthStart) {
+                    if(t.tur === 'borc' && !t.aciklama.toLowerCase().includes('gecikme')) {
+                        pDebt += Number(t.tutar);
+                    }
                 }
+                if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
             }
-            if(t.tur === 'tahsilat') tPay += Math.abs(Number(t.tutar));
         });
 
         if(applied) continue;
@@ -778,7 +927,7 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async () => 
 // LISTENERS
 document.getElementById('loginButton').addEventListener('click', login);
 document.getElementById('loginTerms').addEventListener('change', (e) => document.getElementById('loginButton').disabled = !e.target.checked);
-document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
+document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.removeItem('aidatSession'); location.reload(); });
 document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
 document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
 
@@ -911,9 +1060,10 @@ window.downloadAccountStatementPdf = async function(daireId) {
     let rows = [], bal = 0;
     snap.forEach(d => {
         const t = d.data();
-        if(t.tarih > todayStr) return;
-        bal += Number(t.tutar);
-        rows.push([formatDate(t.tarih), t.aciklama, formatCurrency(t.tutar), formatCurrency(bal)]);
+        if(t.tarih <= todayStr) {
+            bal += Number(t.tutar);
+            rows.push([formatDate(t.tarih), t.aciklama, formatCurrency(t.tutar), formatCurrency(bal)]);
+        }
     });
     pdf.setFont('helvetica', 'normal');
     pdf.text(`${daireId} Hesap Ekstresi`, 14, 20);
@@ -940,8 +1090,7 @@ async function init() {
         }
         if(c>0) await b.commit();
         
-        // Session Check
-        const session = localStorage.getItem('aidatSession');
+        const session = sessionStorage.getItem('aidatSession');
         if(session) {
             const s = JSON.parse(session);
             if(s.role === 'admin') {
