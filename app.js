@@ -1045,6 +1045,35 @@ document.getElementById('changePasswordBtn').addEventListener('click', async () 
     } catch (error) { console.error(error); showMessage("profileMessage", "Hata oluştu.", true); }
 });
 
+// FİLTRELEME (GÜNCELLENMİŞ VE DAHA KAPSAMLI)
+document.getElementById('apartmentSearchInput').addEventListener('input', (e) => {
+    const val = e.target.value.toLocaleLowerCase('tr-TR').trim();
+    
+    // Eğer veri henüz yüklenmediyse işlem yapma
+    if (!allApartmentsData || allApartmentsData.length === 0) return;
+
+    // Arama kutusu boşaldıysa tüm listeyi göster
+    if (val === "") {
+        renderApartmentList(allApartmentsData);
+        return;
+    }
+
+    const filtered = allApartmentsData.filter(d => {
+        // Verileri güvenli şekilde string'e çevirip küçük harfe dönüştür
+        const daireNo = String(d.id || "").toLocaleLowerCase('tr-TR');
+        const ad = String(d.adi || "").toLocaleLowerCase('tr-TR');
+        const soyad = String(d.soyadi || "").toLocaleLowerCase('tr-TR');
+        const tamIsim = `${ad} ${soyad}`; // "Ad Soyad" kombinasyonu
+
+        // Daire no, ad, soyad veya tam isim içinde arama yap
+        return daireNo.includes(val) || 
+               ad.includes(val) || 
+               soyad.includes(val) || 
+               tamIsim.includes(val);
+    });
+    
+    renderApartmentList(filtered);
+});
 // WINDOW EXPORTS
 window.delTrans = async (d, id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'apartments', d, 'transactions', id)); loadAdminTransactionLedger(); } };
 window.delExp = async (id) => { if(confirm("Sil?")) { await deleteDoc(doc(db, 'expenses', id)); loadAdminExpensesTable(); } };
