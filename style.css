@@ -227,3 +227,5 @@ body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); co
     .admin-expense-card-details { margin-top: 8px; align-self: flex-start; }
     .admin-expense-card-actions { width: 100%; justify-content: flex-end; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
 }
+.month-selector { display: flex; align-items: center; justify-content: space-between; background: white; padding: 10px; border-radius: 6px; border: 1px solid #eee; font-weight: bold; }
+.month-selector button { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--primary); }
